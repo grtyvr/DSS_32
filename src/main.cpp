@@ -103,17 +103,18 @@ void loop() {
     }
     if (thisClient.connected()) {
       if (thisClient.available() > 0) {
+        Serial.println(thisClient.read());
         // if there are chars to read....
         // lets print a response and discard the rest of the bytes
-        thisClient.print("000000+");
+        thisClient.print("00000");
         thisClient.print("\t");
-        thisClient.print("000000+");
+        thisClient.print("00000");
         thisClient.print("\r\n");
         #ifdef DEBUGGING
           Serial.print("Azimuth tic: ");
-          Serial.print("000000+");
+          Serial.print("00000+");
           Serial.print(" Altitude tic: ");
-          Serial.println("000000+");
+          Serial.println("00000+");
         #endif
         // discard remaining bytes
         thisClient.flush();
@@ -124,7 +125,7 @@ void loop() {
       alreadyConnected = false;
     }
   }
-  
+
   long newPosition = myEnc.read();
   if (newPosition != oldPosition) {
     oldPosition = newPosition;
