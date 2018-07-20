@@ -4,16 +4,23 @@ ESP_32 version of Digital Setting Circles project
 Accept connections from SkySafari on port 12
 Send Data back.
 
-Thanks to the folks at ZoetropeLabs for example code to access the AS5048's
+Thanks to the folks at ZoetropeLabs
 https://github.com/ZoetropeLabs/AS5048A-Arduino
 
-Thanks to Paul Soffgren for the encoder library
-Thanks to Adafruit for being so AWESOME!
+Thanks to Paul Stoffregen for the encoder library
+Thanks to Adafruit for being so AWESOME!  And for the graphics libraries.
 
  */
 
 #include <Arduino.h>
 #include <WiFi.h>
+#include <Encoder.h>
+
+Encoder myEnc(0,2);
+
+long oldPosition  = -999;
+unsigned long previousMillis = 0;
+int ledState = LOW;             // ledState used to set the LED
 
 // Define this if you want to run as an Access Point.  If undefined it will connect to the
 // SSID with the password below....
@@ -21,6 +28,8 @@ Thanks to Adafruit for being so AWESOME!
 #define AP
 // uncomment the next line to turn on debugging
 #define DEBUGGING
+
+
 
 //char ssid[] = "braapppp"; //  your network SSID (name)
 //char pass[] = "";    // your network password (use for WPA, or use as key for WEP)
@@ -37,9 +46,11 @@ WiFiServer server(23);
 boolean alreadyConnected = false; // whether or not the client was connected previously
 
 void setup() {
+  pinMode(13, OUTPUT);
   //Initialize serial
   Serial.begin(115200);
   delay(1000);
+  Serial.println("Basic Encoder Test:");
 
   #ifdef AP
     Serial.println("Setting up WiFi Access Point");
@@ -72,7 +83,17 @@ void setup() {
 
 void loop() {
   // wait for a new client:
-  delay(1000);
+  //delay(1000);
+  unsigned long currentMillis = millis();
+  if (currentMillis - previousMillis >= 500){
+    previousMillis = currentMillis;
+    if (ledState == LOW){
+      ledState = HIGH;
+    } else {
+      ledState = LOW;
+    }
+  }
+  digitalWrite(13, ledState);
 
   WiFiClient thisClient = server.available();
   // when the client sends the first byte, say hello:
@@ -82,17 +103,18 @@ void loop() {
     }
     if (thisClient.connected()) {
       if (thisClient.available() > 0) {
+        Serial.println(thisClient.read());
         // if there are chars to read....
         // lets print a response and discard the rest of the bytes
-        thisClient.print("000000+");
+        thisClient.print("00000");
         thisClient.print("\t");
-        thisClient.print("000000+");
+        thisClient.print("00000");
         thisClient.print("\r\n");
         #ifdef DEBUGGING
           Serial.print("Azimuth tic: ");
-          Serial.print("000000+");
+          Serial.print("00000+");
           Serial.print(" Altitude tic: ");
-          Serial.println("000000+");
+          Serial.println("00000+");
         #endif
         // discard remaining bytes
         thisClient.flush();
@@ -102,6 +124,12 @@ void loop() {
       thisClient.stop();
       alreadyConnected = false;
     }
+  }
+
+  long newPosition = myEnc.read();
+  if (newPosition != oldPosition) {
+    oldPosition = newPosition;
+    Serial.println(newPosition);
   }
 }
 
