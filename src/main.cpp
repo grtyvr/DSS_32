@@ -17,6 +17,7 @@ Thanks to Adafruit for being so AWESOME!  And for the graphics libraries.
 #include <Encoder.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include <AS5048A.h>
 
 Encoder myEnc(4,0);
 
