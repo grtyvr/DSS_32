@@ -16,11 +16,25 @@ Thanks to Adafruit for being so AWESOME!  And for the graphics libraries.
 #include <WiFi.h>
 #include <Encoder.h>
 
-Encoder myEnc(0,2);
+Encoder myEnc(4,0);
+
+const int ledPin = 13;
+const int buttonPin = 2;
+volatile int interruptCounter = 0;
+int numberOfInterrupts = 0;
+
+portMUX_TYPE mux = portMUX_INITIALIZER_UNLOCKED;
+
+void IRAM_ATTR handleInterrupt() {
+  portENTER_CRITICAL_ISR(&mux);
+  interruptCounter++;
+  portEXIT_CRITICAL_ISR(&mux);
+}
 
 long oldPosition  = -999;
 unsigned long previousMillis = 0;
 int ledState = LOW;             // ledState used to set the LED
+int buttonState = 0;
 
 // Define this if you want to run as an Access Point.  If undefined it will connect to the
 // SSID with the password below....
@@ -28,11 +42,6 @@ int ledState = LOW;             // ledState used to set the LED
 #define AP
 // uncomment the next line to turn on debugging
 #define DEBUGGING
-
-
-
-//char ssid[] = "braapppp"; //  your network SSID (name)
-//char pass[] = "";    // your network password (use for WPA, or use as key for WEP)
 
 const char *apssid = "ESPap";
 const char *appassword = "gofish";
@@ -46,7 +55,12 @@ WiFiServer server(23);
 boolean alreadyConnected = false; // whether or not the client was connected previously
 
 void setup() {
-  pinMode(13, OUTPUT);
+  pinMode(ledPin, OUTPUT);
+//  pinMode(buttonPin, INPUT_PULLDOWN);   // enable the internal pullup
+  pinMode(buttonPin, INPUT_PULLDOWN);
+  // trigger the interrupt on falling edge
+  attachInterrupt(digitalPinToInterrupt(buttonPin), handleInterrupt, RISING);
+
   //Initialize serial
   Serial.begin(115200);
   delay(1000);
@@ -66,7 +80,7 @@ void setup() {
       // Connect to WPA/WPA2 network. Change this line if using open or WEP network:
       status = WiFi.begin(ssid, pass);
 
-      // wait 10 seconds for connection:
+      // wait 5 seconds for connection:
       delay(5000);
     }
   #endif
@@ -93,7 +107,20 @@ void loop() {
       ledState = LOW;
     }
   }
-  digitalWrite(13, ledState);
+  digitalWrite(ledPin, ledState);
+
+  if(interruptCounter > 0) {
+    // Since we do not have access to NoInterrupts and Interrupts yet
+    // we use the portENTER_CRITICAL portEXIT_CRITICAL
+    portENTER_CRITICAL(&mux);
+    interruptCounter--;
+    portEXIT_CRITICAL(&mux);
+
+    // handle interrupt
+    numberOfInterrupts++;
+    Serial.print("Button press.  Total: ");
+    Serial.println(numberOfInterrupts);
+  }
 
   WiFiClient thisClient = server.available();
   // when the client sends the first byte, say hello:
@@ -131,24 +158,6 @@ void loop() {
     oldPosition = newPosition;
     Serial.println(newPosition);
   }
-}
-
-
-// Calculate Even parity of word
-byte calcEvenParity(word value) {
-  byte count = 0;
-  byte i;
-  // loop through the 16 bits
-  for (i = 0; i < 16; i++) {
-    // if the rightmost bit is 1 increment our counter
-    if (value & 0x1) {
-      count++;
-    }
-    // shift off the rightmost bit
-    value >>=1;
-  }
-  // all odd binaries end in 1
-  return count & 0x1;
 }
 
 void printWifiStatus() {
