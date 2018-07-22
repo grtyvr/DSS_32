@@ -16,28 +16,14 @@ Thanks to Adafruit for being so AWESOME!  And for the graphics libraries.
 #include <WiFi.h>
 #include <Encoder.h>            // Paul Stoffregen Rotary Encoder Library
 #include <U8g2lib.h>            // U8g2 Library
-#include "AS5048A.h"            // ZoetropeLabs AS5048S library for
-                                // managing the magnetic rotary encoder
-#include <SPI.h>
 
 // using HW I2C we only need to tell it the rotation
 U8G2_SSD1306_128X64_NONAME_F_HW_I2C display(U8G2_R0);
 
 Encoder myEnc(4,0);
 
-
-static const int spiClk = 1000000; // 1 MHz
-
-//uninitalised pointers to SPI objects
-SPIClass * vspi = NULL;
-const int azSlaveSelect = 5;
-const int alSlaveSelect = 14;
-
-AS5048A azEnc(azSlaveSelect);
-AS5048A alEnc(alSlaveSelect);
-
 const int ledPin = 13;
-const int buttonPin = 2;
+const int buttonPin = 14;
 volatile int interruptCounter = 0;
 int numberOfInterrupts = 0;
 
@@ -74,19 +60,10 @@ boolean alreadyConnected = false; // whether or not the client was connected pre
 
 void setup() {
   display.begin();
-  alEnc.init();
-  azEnc.init();
   pinMode(ledPin, OUTPUT);
   pinMode(buttonPin, INPUT_PULLDOWN);
   // trigger the interrupt on falling edge
   attachInterrupt(digitalPinToInterrupt(buttonPin), handleInterrupt, RISING);
-
-  vspi = new SPIClass(VSPI);
-  //initialise vspi with default pins
-  //SCLK = 18, MISO = 19, MOSI = 23, SS = 5
-  vspi ->begin();
-  pinMode(azSlaveSelect, OUTPUT);
-  pinMode(alSlaveSelect, OUTPUT);
 
   //Initialize serial
   Serial.begin(115200);
@@ -127,22 +104,8 @@ void loop() {
     display.setFont(u8g2_font_ncenB14_tr);
     display.drawStr(0,24,"Hello World!");
   } while ( display.nextPage() );
-  word val = azEnc.getRotation();
-  Serial.print("Got Azimuth Rotation of: 0x");
-  Serial.println(val, HEX);
-  Serial.print("State: ");
-  azEnc.printState();
-  Serial.print("Errors: ");
-  Serial.println(azEnc.getErrors());
-  val = alEnc.getRotation();
-  Serial.print("Got Altitude Rotation of: 0x");
-  Serial.println(val, HEX);
-  Serial.print("State: ");
-  azEnc.printState();
-  Serial.print("Errors: ");
-  Serial.println(alEnc.getErrors());
+
   // wait for a new client:
-  delay(1000);
   unsigned long currentMillis = millis();
   if (currentMillis - previousMillis >= 500){
     previousMillis = currentMillis;
