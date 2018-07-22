@@ -2,7 +2,7 @@
 
 #include <AS5048A.h>
 
-//#define AS5048A_DEBUG
+#define AS5048A_DEBUG
 
 const int AS5048A_CLEAR_ERROR_FLAG              = 0x0001;
 const int AS5048A_PROGRAMMING_CONTROL           = 0x0003;
@@ -171,22 +171,23 @@ word AS5048A::read(word registerAddress){
 #endif
 
 	//SPI - begin transaction
-	SPI.beginTransaction(settings);
-
+//	SPI.beginTransaction(settings);
+	vspi->beginTransaction(SPISettings(spiClk, MSBFIRST, SPI_MODE0))
 	//Send the command
 	digitalWrite(_cs, LOW);
-	SPI.transfer(left_byte);
-	SPI.transfer(right_byte);
+//	SPI.transfer(left_byte);
+//	SPI.transfer(right_byte);
+	vspi->transfer(command);
 	digitalWrite(_cs,HIGH);
 
 	//Now read the response
 	digitalWrite(_cs, LOW);
-	left_byte = SPI.transfer(0x00);
-	right_byte = SPI.transfer(0x00);
+	left_byte = vspi->transfer(0x00);
+	right_byte = vspi->transfer(0x00);
 	digitalWrite(_cs, HIGH);
 
 	//SPI - end transaction
-	SPI.endTransaction();
+	vspi->endTransaction();
 
 #ifdef AS5048A_DEBUG
 	Serial.print("Read returned: ");
