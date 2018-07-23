@@ -11,6 +11,8 @@ Thanks to Paul Stoffregen for the encoder library
 Thanks to Adafruit for being so AWESOME!  And for the graphics libraries.
 
  */
+ #include <stdlib.h>
+
 
 #include <Arduino.h>
 #include <WiFi.h>
@@ -58,6 +60,8 @@ WiFiServer server(23);
 
 boolean alreadyConnected = false; // whether or not the client was connected previously
 
+
+
 void setup() {
   display.begin();
   pinMode(ledPin, OUTPUT);
@@ -100,9 +104,24 @@ void setup() {
 } // end setup
 
 void loop() {
+  char tmp_string[8];
+  long newPosition = myEnc.read();
+
+  itoa(numberOfInterrupts, tmp_string, 10);
+
+  String str = String(numberOfInterrupts);
   do {
-    display.setFont(u8g2_font_ncenB14_tr);
-    display.drawStr(0,24,"Hello World!");
+    display.setFont(u8g2_font_courB08_tf);
+    display.drawStr(0,12,"Hello World!");
+    display.drawStr(0,24,"Button Presses  : ");
+    display.drawStr(105,24,tmp_string);
+    itoa(newPosition, tmp_string, 10);
+    display.drawStr(0,36,"encoder Position: ");
+    display.setDrawColor(0);
+    display.drawBox(105,25,23,11);
+      display.setDrawColor(1);
+    display.drawStr(105,36,tmp_string);
+//    display.drawStr(60,24,str);
   } while ( display.nextPage() );
 
   // wait for a new client:
@@ -161,7 +180,7 @@ void loop() {
     }
   }
 
-  long newPosition = myEnc.read();
+
   if (newPosition != oldPosition) {
     oldPosition = newPosition;
     Serial.println(newPosition);
