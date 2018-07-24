@@ -23,12 +23,15 @@ AS5048A::AS5048A(byte arg_cs){
 	_cs = arg_cs;
 	errorFlag = false;
 	position = 0;
+	needSlaveSelect = false;
 }
 AS5048A::AS5048A(){
-	// use the default for vspi bus in ESP32
-	_cs = 5;
+	// in this invocation we have to explicitly tell
+	// our AS5048A object which device on the bus we 
+	// want to talk to
 	errorFlag = false;
 	position = 0;
+	needSlaveSelect = true;
 }
 
 /**
@@ -40,10 +43,15 @@ void AS5048A::init(){
 	settings = SPISettings(spiClk, MSBFIRST, SPI_MODE1);
 
 	//setup pins
-	pinMode(_cs, OUTPUT);
+	// this neds to be done outside of the lib. if using explicit SSmode
+	//pinMode(_cs, OUTPUT);
 
 	//SPI has an internal SPI-device counter, it is possible to call "begin()" from different devices
-	vspi->begin();
+	#if defined(ESP32)
+		vspi->begin();
+	#else
+		SPI.begin();
+	#endif
 }
 
 /**
@@ -51,7 +59,11 @@ void AS5048A::init(){
  * SPI has an internal SPI-device counter, for each init()-call the close() function must be called exactly 1 time
  */
 void AS5048A::close(){
-	vspi->end();
+	#if defined(ESP32)
+		vspi->end();
+	#else
+		SPI.end();
+	#endif
 }
 
 /**
@@ -123,7 +135,7 @@ word AS5048A::getState(){
 }
 word AS5048A::getState(byte arg_cs){
 	_cs = arg_cs;
-	return AS5048A::read(AS5048A_DIAG_AGC);
+	return AS5048A::read(AS5048A_DIAG_AGC, _cs);
 }
 
 /**
@@ -217,23 +229,38 @@ word AS5048A::read(word registerAddress){
 	#endif
 
 	//SPI - begin transaction
-	//	SPI.beginTransaction(settings);
-	vspi->beginTransaction(settings);
+	#if defined(ESP32)
+		vspi->beginTransaction(settings);
+	#else
+		SPI.beginTransaction(settings);
+	#endif
 	//Send the command
+	#if defined(ESP32)
+		vspi->transfer(left_byte);
+		vspi->transfer(right_byte);
+	#else
+		SPI.transfer(left_byte);
+		SPI.transfer(right_byte);
+	#endif
 	digitalWrite(_cs, LOW);
-	//	SPI.transfer(left_byte);
-	//	SPI.transfer(right_byte);
-	vspi->transfer(left_byte);
-	vspi->transfer(right_byte);
 	digitalWrite(_cs,HIGH);
 	//Now read the response
 	digitalWrite(_cs, LOW);
-	left_byte = vspi->transfer(0x00);
-	right_byte = vspi->transfer(0x00);
+	#if defined(ESP32)
+		left_byte = vspi->transfer(0x00);
+		right_byte = vspi->transfer(0x00);
+	#else
+		left_byte = SPI.transfer(0x00);
+		right_byte = SPI.transfer(0x00);
+	#endif
 	digitalWrite(_cs, HIGH);
 	//SPI - end transaction
-	vspi->endTransaction();
-
+	#if defined(ESP32)
+		vspi->endTransaction();
+	#else
+		SPI.endTransaction();
+	#endif
+	
 #ifdef AS5048A_DEBUG
 	Serial.print("Read returned: ");
 	Serial.print(left_byte, BIN);
@@ -279,21 +306,40 @@ word AS5048A::read(word registerAddress, byte arg_cs){
 
 	//SPI - begin transaction
 	//	SPI.beginTransaction(settings);
-	vspi->beginTransaction(SPISettings(spiClk, MSBFIRST, SPI_MODE1));
+	#if defined(ESP32)
+		vspi->beginTransaction(SPISettings(spiClk, MSBFIRST, SPI_MODE1));
+	#else
+		SPI.beginTransaction(SPISettings(spiClk, MSBFIRST, SPI_MODE1));
+	#endif
+
 	//Send the command
 	digitalWrite(_cs, LOW);
-	//	SPI.transfer(left_byte);
-	//	SPI.transfer(right_byte);
-	vspi->transfer(left_byte);
-	vspi->transfer(right_byte);
+	#if defined(ESP32)
+		vspi->transfer(left_byte);
+		vspi->transfer(right_byte);
+	#else
+		SPI.transfer(left_byte);
+		SPI.transfer(right_byte);
+	#endif
 	digitalWrite(_cs,HIGH);
+	
 	//Now read the response
 	digitalWrite(_cs, LOW);
-	left_byte = vspi->transfer(0x00);
-	right_byte = vspi->transfer(0x00);
+	#if defined(ESP32)
+		left_byte = vspi->transfer(0x00);
+		right_byte = vspi->transfer(0x00);
+	#else
+		left_byte = SPI.transfer(0x00);
+		right_byte = SPI.transfer(0x00);
+	#endif
 	digitalWrite(_cs, HIGH);
+	
 	//SPI - end transaction
-	vspi->endTransaction();
+	#if defined(ESP32)
+		vspi->endTransaction();
+	#else
+		SPI.endTransaction();
+	#endif
 
 #ifdef AS5048A_DEBUG
 	Serial.print("Read returned: ");
@@ -325,7 +371,6 @@ word AS5048A::read(word registerAddress, byte arg_cs){
  * is read back from the sensor to ensure a sucessful write.
  */
 word AS5048A::write(word registerAddress, word data) {
-
 	word command = 0b0000000000000000; // PAR=0 R/W=W
 	command |= registerAddress;
 
@@ -344,12 +389,20 @@ word AS5048A::write(word registerAddress, word data) {
 #endif
 
 	//SPI - begin transaction
-	vspi->beginTransaction(settings);
-
+	#if defined(ESP32)
+		vspi->beginTransaction(settings);
+	#else
+		SPI.beginTransaction(settings);
+	#endif
 	//Start the write command with the target address
 	digitalWrite(_cs, LOW);
-	vspi->transfer(left_byte);
-	vspi->transfer(right_byte);
+	#if defined(ESP32)
+		vspi->transfer(left_byte);
+		vspi->transfer(right_byte);
+	#else
+		SPI.transfer(left_byte);
+		SPI.transfer(right_byte);
+	#endif
 	digitalWrite(_cs,HIGH);
 
 	word dataToSend = 0b0000000000000000;
@@ -367,19 +420,33 @@ word AS5048A::write(word registerAddress, word data) {
 
 	//Now send the data packet
 	digitalWrite(_cs,LOW);
-	vspi->transfer(left_byte);
-	vspi->transfer(right_byte);
+	#if defined(ESP32)
+		vspi->transfer(left_byte);
+		vspi->transfer(right_byte);
+	#else
+		SPI.transfer(left_byte);
+		SPI.transfer(right_byte);
+	#endif
 	digitalWrite(_cs,HIGH);
 
 	//Send a NOP to get the new data in the register
 	digitalWrite(_cs, LOW);
-	left_byte =-SPI.transfer(0x00);
-	right_byte = SPI.transfer(0x00);
+	#if defined(ESP32)
+		left_byte = vspi->transfer(0x00);
+		right_byte = vspi->transfer(0x00);
+	#else
+		left_byte = SPI.transfer(0x00);
+		right_byte = SPI.transfer(0x00);
+	#endif
 	digitalWrite(_cs, HIGH);
 
 	//SPI - end transaction
-	vspi->endTransaction();
-
+	#if defined(ESP32)
+		vspi->endTransaction();
+	#else
+		SPI.endTransaction();
+	#endif
+	
 	//Return the data, stripping the parity and error bits
 	return (( ( left_byte & 0xFF ) << 8 ) | ( right_byte & 0xFF )) & ~0xC000;
 }
@@ -403,12 +470,20 @@ word AS5048A::write(word registerAddress, word data, byte arg_cs) {
 #endif
 
 	//SPI - begin transaction
-	vspi->beginTransaction(settings);
-
+	#if defined(ESP32)
+		vspi->beginTransaction(settings);
+	#else
+		SPI.beginTransaction(settings);
+	#endif
 	//Start the write command with the target address
 	digitalWrite(_cs, LOW);
-	vspi->transfer(left_byte);
-	vspi->transfer(right_byte);
+	#if defined(ESP32)
+		vspi->transfer(left_byte);
+		vspi->transfer(right_byte);
+	#else
+		SPI.transfer(left_byte);
+		SPI.transfer(right_byte);
+	#endif
 	digitalWrite(_cs,HIGH);
 
 	word dataToSend = 0b0000000000000000;
@@ -426,19 +501,33 @@ word AS5048A::write(word registerAddress, word data, byte arg_cs) {
 
 	//Now send the data packet
 	digitalWrite(_cs,LOW);
-	vspi->transfer(left_byte);
-	vspi->transfer(right_byte);
+	#if defined(ESP32)
+		vspi->transfer(left_byte);
+		vspi->transfer(right_byte);
+	#else
+		SPI.transfer(left_byte);
+		SPI.transfer(right_byte);
+	#endif
 	digitalWrite(_cs,HIGH);
 
 	//Send a NOP to get the new data in the register
 	digitalWrite(_cs, LOW);
-	left_byte =-SPI.transfer(0x00);
-	right_byte = SPI.transfer(0x00);
+	#if defined(ESP32)
+		left_byte = vspi->transfer(0x00);
+		right_byte = vspi->transfer(0x00);
+	#else
+		left_byte = SPI.transfer(0x00);
+		right_byte = SPI.transfer(0x00);
+	#endif
 	digitalWrite(_cs, HIGH);
 
 	//SPI - end transaction
-	vspi->endTransaction();
-
+	#if defined(ESP32)
+		vspi->endTransaction();
+	#else
+		SPI.endTransaction();
+	#endif
+	
 	//Return the data, stripping the parity and error bits
 	return (( ( left_byte & 0xFF ) << 8 ) | ( right_byte & 0xFF )) & ~0xC000;
 }
