@@ -16,6 +16,11 @@ Thanks to Adafruit for being so AWESOME!  And for the graphics libraries.
 #include <WiFi.h>
 #include <Encoder.h>            // Paul Stoffregen Rotary Encoder Library
 #include <U8g2lib.h>            // U8g2 Library
+//#include "AS5048A.h"
+//#include <SPI.h>
+
+//AS5048A alSensor(5);
+//AS5048A azSensor(14);
 
 // using HW I2C we only need to tell it the rotation
 U8G2_SSD1306_128X64_NONAME_F_HW_I2C display(U8G2_R0);
@@ -61,6 +66,8 @@ boolean alreadyConnected = false; // whether or not the client was connected pre
 
 
 void setup() {
+//  alSensor.init();
+//  azSensor.init();
   display.begin();
   pinMode(ledPin, OUTPUT);
   pinMode(buttonPin, INPUT_PULLDOWN);
@@ -102,6 +109,25 @@ void setup() {
 } // end setup
 
 void loop() {
+  //use the SPI buses
+  // altitude sensor
+  /*word val = alSensor.getRawRotation();
+  Serial.print("Got Altitude of: 0x");
+  Serial.println(val, HEX);
+  Serial.print("State: ");
+  alSensor.printState();
+  Serial.print("Errors: ");
+  Serial.println(alSensor.getErrors());
+  // Azimuth sensor
+
+  val = azSensor.getRawRotation();
+  Serial.print("Got Altitude of: 0x");
+  Serial.println(val, HEX);
+  Serial.print("State: ");
+  azSensor.printState();
+  Serial.print("Errors: ");
+  Serial.println(azSensor.getErrors());
+*/
   char tmp_string[8];
   long newPosition = myEnc.read();
 

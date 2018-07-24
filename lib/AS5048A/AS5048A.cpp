@@ -2,7 +2,7 @@
 
 #include <AS5048A.h>
 
-#define AS5048A_DEBUG
+//#define AS5048A_DEBUG
 
 const int AS5048A_CLEAR_ERROR_FLAG              = 0x0001;
 const int AS5048A_PROGRAMMING_CONTROL           = 0x0003;
@@ -11,6 +11,10 @@ const int AS5048A_OTP_REGISTER_ZERO_POS_LOW     = 0x0017;
 const int AS5048A_DIAG_AGC                      = 0x3FFD;
 const int AS5048A_MAGNITUDE                     = 0x3FFE;
 const int AS5048A_ANGLE                         = 0x3FFF;
+
+static const int spiClk = 1000000; // 1 MHz
+
+SPIClass * vspi = NULL;
 
 /**
  * Constructor
@@ -34,7 +38,7 @@ void AS5048A::init(){
 	pinMode(_cs, OUTPUT);
 
 	//SPI has an internal SPI-device counter, it is possible to call "begin()" from different devices
-	SPI.begin();
+	vspi->begin();
 }
 
 /**
@@ -42,7 +46,7 @@ void AS5048A::init(){
  * SPI has an internal SPI-device counter, for each init()-call the close() function must be called exactly 1 time
  */
 void AS5048A::close(){
-	SPI.end();
+	vspi->end();
 }
 
 /**
@@ -172,7 +176,7 @@ word AS5048A::read(word registerAddress){
 
 	//SPI - begin transaction
 	//	SPI.beginTransaction(settings);
-	vspi->beginTransaction(SPISettings(spiClk, MSBFIRST, SPI_MODE1))
+	vspi->beginTransaction(SPISettings(spiClk, MSBFIRST, SPI_MODE1));
 	//Send the command
 	digitalWrite(_cs, LOW);
 	//	SPI.transfer(left_byte);
