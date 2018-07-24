@@ -24,7 +24,12 @@ AS5048A::AS5048A(byte arg_cs){
 	errorFlag = false;
 	position = 0;
 }
-
+AS5048A::AS5048A(){
+	// use the default for vspi bus in ESP32
+	_cs = 5;
+	errorFlag = false;
+	position = 0;
+}
 
 /**
  * Initialiser
@@ -32,7 +37,7 @@ AS5048A::AS5048A(byte arg_cs){
  */
 void AS5048A::init(){
 	// 1MHz clock (AMS should be able to accept up to 10MHz)
-	settings = SPISettings(1000000, MSBFIRST, SPI_MODE1);
+	settings = SPISettings(spiClk, MSBFIRST, SPI_MODE1);
 
 	//setup pins
 	pinMode(_cs, OUTPUT);
@@ -85,6 +90,18 @@ int AS5048A::getRotation(){
 
 	return rotation;
 }
+int AS5048A::getRotation(byte arg_cs){
+	_cs = arg_cs;
+	word data;
+	int rotation;
+
+	data = AS5048A::getRawRotation(_cs);
+	rotation = (int)data - (int)position;
+	if(rotation > 8191) rotation = -((0x3FFF)-rotation); //more than -180
+	//if(rotation < -0x1FFF) rotation = rotation+0x3FFF;
+
+	return rotation;
+}
 
 /**
  * Returns the raw angle directly from the sensor
@@ -92,12 +109,20 @@ int AS5048A::getRotation(){
 word AS5048A::getRawRotation(){
 	return AS5048A::read(AS5048A_ANGLE);
 }
+word AS5048A::getRawRotation(byte arg_cs){
+	_cs = arg_cs;
+	return AS5048A::read(AS5048A_ANGLE, _cs);
+}
 
 /**
  * returns the value of the state register
  * @return 16 bit word containing flags
  */
 word AS5048A::getState(){
+	return AS5048A::read(AS5048A_DIAG_AGC);
+}
+word AS5048A::getState(byte arg_cs){
+	_cs = arg_cs;
 	return AS5048A::read(AS5048A_DIAG_AGC);
 }
 
@@ -113,7 +138,16 @@ void AS5048A::printState(){
 	}
 	Serial.println(data, BIN);
 }
+void AS5048A::printState(byte arg_cs){
+	_cs = arg_cs;
+	word data;
 
+	data = AS5048A::getState(_cs);
+	if(AS5048A::error(_cs)){
+		Serial.print("Error bit was set!");
+	}
+	Serial.println(data, BIN);
+}
 /**
  * Returns the value used for Automatic Gain Control (Part of diagnostic
  * register)
@@ -122,12 +156,20 @@ byte AS5048A::getGain(){
 	word data = AS5048A::getState();
 	return (byte) data & 0xFF;
 }
-
+byte AS5048A::getGain(byte arg_cs){
+	_cs = arg_cs;
+	word data = AS5048A::getState(_cs);
+	return (byte) data & 0xFF;
+}
 /*
  * Get and clear the error register by reading it
  */
 word AS5048A::getErrors(){
 	return AS5048A::read(AS5048A_CLEAR_ERROR_FLAG);
+}
+word AS5048A::getErrors(byte arg_cs){
+	_cs = arg_cs;
+	return AS5048A::read(AS5048A_CLEAR_ERROR_FLAG, _cs);
 }
 
 /*
@@ -157,6 +199,67 @@ bool AS5048A::error(){
  * Returns the value of the register
  */
 word AS5048A::read(word registerAddress){
+	word command = 0b0100000000000000; // PAR=0 R/W=R
+	command = command | registerAddress;
+
+	//Add a parity bit on the the MSB
+	command |= ((word)spiCalcEvenParity(command)<<15);
+
+	//Split the command into two bytes
+	byte right_byte = command & 0xFF;
+	byte left_byte = ( command >> 8 ) & 0xFF;
+
+	#ifdef AS5048A_DEBUG
+		Serial.print("Read (0x");
+		Serial.print(registerAddress, HEX);
+		Serial.print(") with command: 0b");
+		Serial.println(command, BIN);
+	#endif
+
+	//SPI - begin transaction
+	//	SPI.beginTransaction(settings);
+	vspi->beginTransaction(settings);
+	//Send the command
+	digitalWrite(_cs, LOW);
+	//	SPI.transfer(left_byte);
+	//	SPI.transfer(right_byte);
+	vspi->transfer(left_byte);
+	vspi->transfer(right_byte);
+	digitalWrite(_cs,HIGH);
+	//Now read the response
+	digitalWrite(_cs, LOW);
+	left_byte = vspi->transfer(0x00);
+	right_byte = vspi->transfer(0x00);
+	digitalWrite(_cs, HIGH);
+	//SPI - end transaction
+	vspi->endTransaction();
+
+#ifdef AS5048A_DEBUG
+	Serial.print("Read returned: ");
+	Serial.print(left_byte, BIN);
+	Serial.print(" ");
+	Serial.println(right_byte, BIN);
+#endif
+
+	//Check if the error bit is set
+	if (left_byte & 0x40) {
+#ifdef AS5048A_DEBUG
+		Serial.println("Setting error bit");
+#endif
+		errorFlag = true;
+	}
+	else {
+		errorFlag = false;
+	}
+
+	//Return the data, stripping the parity and error bits
+	return (( ( left_byte & 0xFF ) << 8 ) | ( right_byte & 0xFF )) & ~0xC000;
+}
+bool AS5048A::error(){
+	return errorFlag;
+}
+word AS5048A::read(word registerAddress, byte arg_cs){
+	_cs = arg_cs;
 	word command = 0b0100000000000000; // PAR=0 R/W=R
 	command = command | registerAddress;
 
@@ -214,7 +317,6 @@ word AS5048A::read(word registerAddress){
 	return (( ( left_byte & 0xFF ) << 8 ) | ( right_byte & 0xFF )) & ~0xC000;
 }
 
-
 /*
  * Write to a register
  * Takes the 16-bit  address of the target register and the 16 bit word of data
@@ -242,12 +344,12 @@ word AS5048A::write(word registerAddress, word data) {
 #endif
 
 	//SPI - begin transaction
-	SPI.beginTransaction(settings);
+	vspi->beginTransaction(settings);
 
 	//Start the write command with the target address
 	digitalWrite(_cs, LOW);
-	SPI.transfer(left_byte);
-	SPI.transfer(right_byte);
+	vspi->transfer(left_byte);
+	vspi->transfer(right_byte);
 	digitalWrite(_cs,HIGH);
 
 	word dataToSend = 0b0000000000000000;
@@ -265,8 +367,8 @@ word AS5048A::write(word registerAddress, word data) {
 
 	//Now send the data packet
 	digitalWrite(_cs,LOW);
-	SPI.transfer(left_byte);
-	SPI.transfer(right_byte);
+	vspi->transfer(left_byte);
+	vspi->transfer(right_byte);
 	digitalWrite(_cs,HIGH);
 
 	//Send a NOP to get the new data in the register
@@ -276,7 +378,66 @@ word AS5048A::write(word registerAddress, word data) {
 	digitalWrite(_cs, HIGH);
 
 	//SPI - end transaction
-	SPI.endTransaction();
+	vspi->endTransaction();
+
+	//Return the data, stripping the parity and error bits
+	return (( ( left_byte & 0xFF ) << 8 ) | ( right_byte & 0xFF )) & ~0xC000;
+}
+word AS5048A::write(word registerAddress, word data, byte arg_cs) {
+	_cs = arg_cs;
+	word command = 0b0000000000000000; // PAR=0 R/W=W
+	command |= registerAddress;
+
+	//Add a parity bit on the the MSB
+	command |= ((word)spiCalcEvenParity(command)<<15);
+
+	//Split the command into two bytes
+	byte right_byte = command & 0xFF;
+	byte left_byte = ( command >> 8 ) & 0xFF;
+
+#ifdef AS5048A_DEBUG
+	Serial.print("Write (0x");
+	Serial.print(registerAddress, HEX);
+	Serial.print(") with command: 0b");
+	Serial.println(command, BIN);
+#endif
+
+	//SPI - begin transaction
+	vspi->beginTransaction(settings);
+
+	//Start the write command with the target address
+	digitalWrite(_cs, LOW);
+	vspi->transfer(left_byte);
+	vspi->transfer(right_byte);
+	digitalWrite(_cs,HIGH);
+
+	word dataToSend = 0b0000000000000000;
+	dataToSend |= data;
+
+	//Craft another packet including the data and parity
+	dataToSend |= ((word)spiCalcEvenParity(dataToSend)<<15);
+	right_byte = dataToSend & 0xFF;
+	left_byte = ( dataToSend >> 8 ) & 0xFF;
+
+#ifdef AS5048A_DEBUG
+	Serial.print("Sending data to write: ");
+	Serial.println(dataToSend, BIN);
+#endif
+
+	//Now send the data packet
+	digitalWrite(_cs,LOW);
+	vspi->transfer(left_byte);
+	vspi->transfer(right_byte);
+	digitalWrite(_cs,HIGH);
+
+	//Send a NOP to get the new data in the register
+	digitalWrite(_cs, LOW);
+	left_byte =-SPI.transfer(0x00);
+	right_byte = SPI.transfer(0x00);
+	digitalWrite(_cs, HIGH);
+
+	//SPI - end transaction
+	vspi->endTransaction();
 
 	//Return the data, stripping the parity and error bits
 	return (( ( left_byte & 0xFF ) << 8 ) | ( right_byte & 0xFF )) & ~0xC000;
