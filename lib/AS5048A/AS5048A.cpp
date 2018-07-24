@@ -163,29 +163,28 @@ word AS5048A::read(word registerAddress){
 	byte right_byte = command & 0xFF;
 	byte left_byte = ( command >> 8 ) & 0xFF;
 
-#ifdef AS5048A_DEBUG
-	Serial.print("Read (0x");
-	Serial.print(registerAddress, HEX);
-	Serial.print(") with command: 0b");
-	Serial.println(command, BIN);
-#endif
+	#ifdef AS5048A_DEBUG
+		Serial.print("Read (0x");
+		Serial.print(registerAddress, HEX);
+		Serial.print(") with command: 0b");
+		Serial.println(command, BIN);
+	#endif
 
 	//SPI - begin transaction
-//	SPI.beginTransaction(settings);
-	vspi->beginTransaction(SPISettings(spiClk, MSBFIRST, SPI_MODE0))
+	//	SPI.beginTransaction(settings);
+	vspi->beginTransaction(SPISettings(spiClk, MSBFIRST, SPI_MODE1))
 	//Send the command
 	digitalWrite(_cs, LOW);
-//	SPI.transfer(left_byte);
-//	SPI.transfer(right_byte);
-	vspi->transfer(command);
+	//	SPI.transfer(left_byte);
+	//	SPI.transfer(right_byte);
+	vspi->transfer(left_byte);
+	vspi->transfer(right_byte);
 	digitalWrite(_cs,HIGH);
-
 	//Now read the response
 	digitalWrite(_cs, LOW);
 	left_byte = vspi->transfer(0x00);
 	right_byte = vspi->transfer(0x00);
 	digitalWrite(_cs, HIGH);
-
 	//SPI - end transaction
 	vspi->endTransaction();
 

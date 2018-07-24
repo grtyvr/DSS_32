@@ -11,9 +11,7 @@ Thanks to Paul Stoffregen for the encoder library
 Thanks to Adafruit for being so AWESOME!  And for the graphics libraries.
 
  */
- #include <stdlib.h>
-
-
+#include <stdlib.h>
 #include <Arduino.h>
 #include <WiFi.h>
 #include <Encoder.h>            // Paul Stoffregen Rotary Encoder Library
