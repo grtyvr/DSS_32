@@ -16,26 +16,99 @@ Thanks to Adafruit for being so AWESOME!  And for the graphics libraries.
 #include <WiFi.h>
 #include <Encoder.h>            // Paul Stoffregen Rotary Encoder Library
 #include <U8g2lib.h>            // U8g2 Library
-//#include "AS5048A.h"
 #include <SPI.h>
 
-const int al = 5;    // altitiude Slave Select
-const int az = 15;   // azimuth Slave Select
-const int ledPin = 13;
+const int ledPin = 13;  // Status led
+
+// uncomment the next line to turn on debugging
+//#define DEBUGGING
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// Set up the rotary encoder stuff
+//
 const int buttonPin = 14;
 // this could change in unexpected ways ( in an interupt )
 volatile int interruptCounter = 0;
 int numberOfInterrupts = 0;
+Encoder myEnc(4,0);
 
-static const int spiClk = 1000000; // 1 MHz
-SPIClass * vspi = NULL;
+// Set up interupt
+portMUX_TYPE mux = portMUX_INITIALIZER_UNLOCKED;
 
+void IRAM_ATTR handleInterrupt() {
+  portENTER_CRITICAL_ISR(&mux);
+  interruptCounter++;
+  portEXIT_CRITICAL_ISR(&mux);
+}
+
+long oldPosition  = -999;
+unsigned long previousMillis = 0;
+int ledState = LOW;             // ledState used to set the LED
+int buttonState = 0;
+//
+///////////////////////////////////////////////////////////////////////////////
 
 ///////////////////////////////////////////////////////////////////////////////
 //
-//  define functions for using the sensors
-//
+// Set up the display
+// using HW I2C we only need to tell it the rotation
+U8G2_SSD1306_128X64_NONAME_F_HW_I2C display(U8G2_R0);
 
+///////////////////////////////////////////////////////////////////////////////
+//
+// Set up the WiFiServer
+//
+// Define this if you want to run as an Access Point.  If undefined it will connect to the
+// SSID with the password below....
+#define AP
+
+const char *apssid = "ESPap";
+const char *appassword = "gofish";
+
+int keyIndex = 0;            // your network key Index number (needed only for WEP)
+
+int status = WL_IDLE_STATUS;
+
+WiFiServer server(23);
+boolean alreadyConnected = false; // whether or not the client was connected previously
+//
+///////////////////////////////////////////////////////////////////////////////
+//
+// Function definitions for WiFi
+//
+void printWifiStatus() {
+  // print the SSID of the network you're attached to:
+  Serial.print("SSID: ");
+  Serial.println(WiFi.SSID());
+
+  // print your WiFi shield's IP address:
+  IPAddress ip = WiFi.localIP();
+  Serial.print("IP Address: ");
+  Serial.println(ip);
+
+  // print the received signal strength:
+  long rssi = WiFi.RSSI();
+  Serial.print("signal strength (RSSI):");
+  Serial.print(rssi);
+  Serial.println(" dBm");
+}
+//
+///////////////////////////////////////////////////////////////////////////////
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// Set up SPI bus
+//
+static const int spiClk = 1000000; // 1 MHz
+SPIClass * vspi = NULL;
+//
+///////////////////////////////////////////////////////////////////////////////
+
+///////////////////////////////////////////////////////////////////////////////
+//
+//  Set up the functions for reading the sensors
+//
 // These defines are for the AS5048
 // for example...
 // http://ams.com/eng/Support/Demoboards/Position-Sensors/Rotary-Magnetic-Position-Sensors/AS5048A-Adapterboard
@@ -49,8 +122,10 @@ SPIClass * vspi = NULL;
 
 #define numToAverage 20
 #define discardNumber 2     // 2x this number must be less than numToAverage
+
 int azimuthSensorPin=15;
 int altitudeSensorPin=5;
+
 byte cmd_highbyte = 0;
 byte cmd_lowbyte = 0;
 byte alt_data_highbyte = 0;
@@ -72,9 +147,12 @@ double smoothAltitudeAngles[numToAverage];
 // the value of the current Azimuth and Altitude angle that we will report back to Sky Safari
 double advancedCircularSmoothAzimuthAngle = 0;
 double advancedCircularSmoothAltitudeAngle = 0;
+
 ///////////////////////////////////////////////////////////////////////////////
 //
 //  Function definitions
+//
+///////////////////////////////////////////////////////////////////////////////
 //
 // pad the Tics value with leading zeros and return a string
 String PadTic(unsigned int tic, String Sign){
@@ -92,7 +170,8 @@ String PadTic(unsigned int tic, String Sign){
   paddedTic = Sign + paddedTic;
   return paddedTic;
 }
-
+///////////////////////////////////////////////////////////////////////////////
+//
 // Calculate Even parity of word
 byte calcEvenParity(word value) {
   byte count = 0;
@@ -109,7 +188,8 @@ byte calcEvenParity(word value) {
   // all odd binaries end in 1
   return count & 0x1;
 }
-
+///////////////////////////////////////////////////////////////////////////////
+//
 // Read the sensor REG_DATA register
 unsigned int readSensor(int cs){
   unsigned int data;
@@ -143,7 +223,8 @@ unsigned int readSensor(int cs){
   #endif
   return data;
 }
-
+///////////////////////////////////////////////////////////////////////////////
+//
 // This just trims the bottom 14 bits off of a sensor read
 unsigned int readTic(int cs){
   unsigned int rawData;
@@ -152,24 +233,8 @@ unsigned int readTic(int cs){
   realData = rawData & 0x3fff;
   return realData;
 }
-
-void printWifiStatus() {
-  // print the SSID of the network you're attached to:
-  Serial.print("SSID: ");
-  Serial.println(WiFi.SSID());
-
-  // print your WiFi shield's IP address:
-  IPAddress ip = WiFi.localIP();
-  Serial.print("IP Address: ");
-  Serial.println(ip);
-
-  // print the received signal strength:
-  long rssi = WiFi.RSSI();
-  Serial.print("signal strength (RSSI):");
-  Serial.print(rssi);
-  Serial.println(" dBm");
-}
-
+///////////////////////////////////////////////////////////////////////////////
+//
 // Return the minimal angular separation for two angeles.  Returns between 0 and 180 for any two input values
 double angularSeparation(double angleOne, double angleTwo){
   double retVal = 0;
@@ -180,6 +245,8 @@ double angularSeparation(double angleOne, double angleTwo){
   return retVal;
 
 }
+///////////////////////////////////////////////////////////////////////////////
+//
 // return the circular mean of the angles using the atan2 method
 // takes a pointer to an array of angles
 double circularAverage( double *anglesToAverage){
@@ -213,7 +280,8 @@ double circularAverage( double *anglesToAverage){
   }
   return retVal;
 }
-
+///////////////////////////////////////////////////////////////////////////////
+//
 // advancedCircularSmooth
 // take a new sensor reading, the current advancedCircularSmooth value and an array of past sensor readings
 // return a good estimate of the most likely value that the sensor should read by doing the following
@@ -228,7 +296,6 @@ double circularAverage( double *anglesToAverage){
 //   use that array to find the new angular mean.
 double advancedCircularSmooth(double newAngle, int axis, double currentCircSmoothValue, double *pastSensorReadings) {
   int j, k;
-  int bottom, top;
   static int currentPosition1;  // this is a hack to take into account we are calling this function on two different arrays
   static int currentPosition2;  //
   int currentPosition;
@@ -238,7 +305,6 @@ double advancedCircularSmooth(double newAngle, int axis, double currentCircSmoot
   double sortedDeltas[numToAverage];
   int sortedIndex[numToAverage];
   double anglesToAverage[numToAverage - 2 * discardNumber];
-  double currentAverageAngle;
   // increment the couter based on the axis we are smoothing
   if ( axis == 1 ) {
     currentPosition1 = ( currentPosition1 + 1) % numToAverage;
@@ -280,8 +346,8 @@ double advancedCircularSmooth(double newAngle, int axis, double currentCircSmoot
   }
   return (double) circularAverage(anglesToAverage);
 }
-
-
+///////////////////////////////////////////////////////////////////////////////
+//
 // convert an angle to tics
 unsigned int angleToTics( double angle){
   unsigned int retVal = 0;
@@ -291,75 +357,24 @@ unsigned int angleToTics( double angle){
   }
   return retVal;
 }
-
+///////////////////////////////////////////////////////////////////////////////
+//
 // convert tics to angle
 double ticsToAngle ( unsigned int tics) {
   double retVal;
   retVal = tics * increment;
   return retVal;
 }
-
-//
-//
 //  end of AS5048 calls
 //
 ///////////////////////////////////////////////////////////////////////////////
-
-///////////////////////////////////////////////////////////////////////////////
-//
-// Set up the display
-// using HW I2C we only need to tell it the rotation
-U8G2_SSD1306_128X64_NONAME_F_HW_I2C display(U8G2_R0);
-
-Encoder myEnc(4,0);
-
-// Set up interupt
-portMUX_TYPE mux = portMUX_INITIALIZER_UNLOCKED;
-
-void IRAM_ATTR handleInterrupt() {
-  portENTER_CRITICAL_ISR(&mux);
-  interruptCounter++;
-  portEXIT_CRITICAL_ISR(&mux);
-}
-
-long oldPosition  = -999;
-unsigned long previousMillis = 0;
-int ledState = LOW;             // ledState used to set the LED
-int buttonState = 0;
-
-// Define this if you want to run as an Access Point.  If undefined it will connect to the
-// SSID with the password below....
-
-#define AP
-// uncomment the next line to turn on debugging
-#define DEBUGGING
-
-const char *apssid = "ESPap";
-const char *appassword = "gofish";
-
-int keyIndex = 0;            // your network key Index number (needed only for WEP)
-
-int status = WL_IDLE_STATUS;
-
-WiFiServer server(23);
-
-boolean alreadyConnected = false; // whether or not the client was connected previously
-
-
 
 void setup() {
 //  sensor.init();
   // initialize an instance of the SPIClass attached to vspi
   vspi = new SPIClass(VSPI);
 
-  vspi->begin();
-
-  pinMode(al, OUTPUT);
-  pinMode(az, OUTPUT);
-
   vspi->begin();                                                        // Wake up the buss
-  //SPI.setBitOrder(MSBFIRST);                                          // AS5048 is a Most Significant Bit first
-  //SPI.setDataMode(SPI_MODE1);                                         // AS5048 uses Mode 1
   // fill up our smoothing arrays with data
   for (i = 1; i <= numToAverage; i++){
     rawData = readTic(azimuthSensorPin);
@@ -367,7 +382,9 @@ void setup() {
     rawData = readTic(altitudeSensorPin);
     advancedCircularSmoothAltitudeAngle = advancedCircularSmooth(ticsToAngle(rawData), 2, advancedCircularSmoothAltitudeAngle, smoothAltitudeAngles);
   }
+
   display.begin();
+
   pinMode(ledPin, OUTPUT);
   pinMode(buttonPin, INPUT_PULLDOWN);
   // trigger the interrupt on falling edge
@@ -409,7 +426,7 @@ void setup() {
 
 void loop() {
   rawData = readTic(azimuthSensorPin);
-  rawData &= 0x3FFE; // discard the least significant bit(s)
+  rawData &= 0x3FFE; // discard the least significant bit
   advancedCircularSmoothAzimuthAngle = advancedCircularSmooth(ticsToAngle(rawData), 1, advancedCircularSmoothAzimuthAngle, smoothAzimuthAngles);
   #ifdef DEBUGGING
     Serial.print("Raw Angle: ");
@@ -426,9 +443,9 @@ void loop() {
     Serial.print(" CircSmooth Al: ");
     Serial.println(advancedCircularSmoothAltitudeAngle);
   #endif
-  delay(10);
+//  delay(10);
 
-  char tmp_string[8];
+  char tmp_string[12];
   long newPosition = myEnc.read();
 
   display.firstPage();
@@ -442,47 +459,22 @@ void loop() {
     display.setDrawColor(1);
     itoa(numberOfInterrupts, tmp_string, 10);
     display.drawStr(105,12,tmp_string);
-//    display.drawStr(105,12, String(numberOfInterrupts));
     itoa(newPosition, tmp_string, 10);
     display.drawStr(105,24,tmp_string);
-    //
     display.drawStr(0,36, "Altitude: ");
     display.drawStr(0,48, " Azimuth: ");
     display.setDrawColor(0);
     display.drawBox(55,24,24,24);
     display.setDrawColor(1);
-    itoa(advancedCircularSmoothAltitudeAngle, tmp_string, 10);
+    dtostrf(advancedCircularSmoothAltitudeAngle,10,2,tmp_string);
+//    itoa(advancedCircularSmoothAltitudeAngle, tmp_string, 10);
     display.drawStr(55,36,tmp_string);
-    itoa(advancedCircularSmoothAzimuthAngle, tmp_string, 10);
+    dtostrf(advancedCircularSmoothAzimuthAngle,10,2,tmp_string);
+//    itoa(advancedCircularSmoothAzimuthAngle, tmp_string, 10);
     display.drawStr(55,48,tmp_string);
-
-//    display.drawStr(60,24,str);
   } while ( display.nextPage() );
 
   // wait for a new client:
-  unsigned long currentMillis = millis();
-  if (currentMillis - previousMillis >= 500){
-    previousMillis = currentMillis;
-    if (ledState == LOW){
-      ledState = HIGH;
-    } else {
-      ledState = LOW;
-    }
-  }
-  digitalWrite(ledPin, ledState);
-
-  if(interruptCounter > 0) {
-    // Since we do not have access to NoInterrupts and Interrupts yet
-    // we use the portENTER_CRITICAL portEXIT_CRITICAL
-    portENTER_CRITICAL(&mux);
-    interruptCounter--;
-    portEXIT_CRITICAL(&mux);
-
-    // handle interrupt
-    numberOfInterrupts++;
-    Serial.print("Button press.  Total: ");
-    Serial.println(numberOfInterrupts);
-  }
 
   WiFiClient thisClient = server.available();
   // when the client sends the first byte, say hello:
@@ -513,8 +505,33 @@ void loop() {
       thisClient.stop();
       alreadyConnected = false;
     }
-  }
+  } // end this client
 
+// blink status led
+  unsigned long currentMillis = millis();
+  if (currentMillis - previousMillis >= 500){
+    previousMillis = currentMillis;
+    if (ledState == LOW){
+      ledState = HIGH;
+    } else {
+      ledState = LOW;
+    }
+  }
+  digitalWrite(ledPin, ledState);
+// Update the rotary Encoder
+
+  if(interruptCounter > 0) {
+    // Since we do not have access to NoInterrupts and Interrupts yet
+    // we use the portENTER_CRITICAL portEXIT_CRITICAL
+    portENTER_CRITICAL(&mux);
+    interruptCounter--;
+    portEXIT_CRITICAL(&mux);
+
+    // handle interrupt
+    numberOfInterrupts++;
+    Serial.print("Button press.  Total: ");
+    Serial.println(numberOfInterrupts);
+  }
 
   if (newPosition != oldPosition) {
     oldPosition = newPosition;
