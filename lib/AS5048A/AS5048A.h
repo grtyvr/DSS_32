@@ -22,8 +22,8 @@ class AS5048A{
 	/**
 	 *	Constructor
 	 */
-	AS5048A(byte arg_cs);
 	AS5048A();
+	AS5048A(byte arg_cs);
 
 	/**
 	 * Initialiser

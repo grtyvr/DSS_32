@@ -23,16 +23,16 @@ AS5048A::AS5048A(byte arg_cs){
 	_cs = arg_cs;
 	errorFlag = false;
 	position = 0;
-	needSlaveSelect = false;
 }
+/*
 AS5048A::AS5048A(){
 	// in this invocation we have to explicitly tell
-	// our AS5048A object which device on the bus we 
+	// our AS5048A object which device on the bus we
 	// want to talk to
 	errorFlag = false;
 	position = 0;
-	needSlaveSelect = true;
 }
+*/
 
 /**
  * Initialiser
@@ -102,6 +102,7 @@ int AS5048A::getRotation(){
 
 	return rotation;
 }
+
 int AS5048A::getRotation(byte arg_cs){
 	_cs = arg_cs;
 	word data;
@@ -204,7 +205,6 @@ word AS5048A::getZeroPosition(){
 bool AS5048A::error(){
 	return errorFlag;
 }
-
 /*
  * Read a register from the sensor
  * Takes the address of the register as a 16 bit word
@@ -260,7 +260,7 @@ word AS5048A::read(word registerAddress){
 	#else
 		SPI.endTransaction();
 	#endif
-	
+
 #ifdef AS5048A_DEBUG
 	Serial.print("Read returned: ");
 	Serial.print(left_byte, BIN);
@@ -282,9 +282,7 @@ word AS5048A::read(word registerAddress){
 	//Return the data, stripping the parity and error bits
 	return (( ( left_byte & 0xFF ) << 8 ) | ( right_byte & 0xFF )) & ~0xC000;
 }
-bool AS5048A::error(){
-	return errorFlag;
-}
+
 word AS5048A::read(word registerAddress, byte arg_cs){
 	_cs = arg_cs;
 	word command = 0b0100000000000000; // PAR=0 R/W=R
@@ -322,7 +320,7 @@ word AS5048A::read(word registerAddress, byte arg_cs){
 		SPI.transfer(right_byte);
 	#endif
 	digitalWrite(_cs,HIGH);
-	
+
 	//Now read the response
 	digitalWrite(_cs, LOW);
 	#if defined(ESP32)
@@ -333,7 +331,7 @@ word AS5048A::read(word registerAddress, byte arg_cs){
 		right_byte = SPI.transfer(0x00);
 	#endif
 	digitalWrite(_cs, HIGH);
-	
+
 	//SPI - end transaction
 	#if defined(ESP32)
 		vspi->endTransaction();
@@ -446,7 +444,7 @@ word AS5048A::write(word registerAddress, word data) {
 	#else
 		SPI.endTransaction();
 	#endif
-	
+
 	//Return the data, stripping the parity and error bits
 	return (( ( left_byte & 0xFF ) << 8 ) | ( right_byte & 0xFF )) & ~0xC000;
 }
@@ -527,7 +525,7 @@ word AS5048A::write(word registerAddress, word data, byte arg_cs) {
 	#else
 		SPI.endTransaction();
 	#endif
-	
+
 	//Return the data, stripping the parity and error bits
 	return (( ( left_byte & 0xFF ) << 8 ) | ( right_byte & 0xFF )) & ~0xC000;
 }
