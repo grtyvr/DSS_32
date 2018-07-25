@@ -426,7 +426,7 @@ void loop() {
     Serial.print(" CircSmooth Al: ");
     Serial.println(advancedCircularSmoothAltitudeAngle);
   #endif
-  delay(100);
+  delay(10);
 
   char tmp_string[8];
   long newPosition = myEnc.read();
@@ -442,6 +442,7 @@ void loop() {
     display.setDrawColor(1);
     itoa(numberOfInterrupts, tmp_string, 10);
     display.drawStr(105,12,tmp_string);
+//    display.drawStr(105,12, String(numberOfInterrupts));
     itoa(newPosition, tmp_string, 10);
     display.drawStr(105,24,tmp_string);
     //
