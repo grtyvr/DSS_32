@@ -18,10 +18,10 @@
 
 const int numToAve = 20;
 const int numToDscd = 2;
-const double increment = (double) 360 / 16384;  // this is the smallest angular increment that is reportable by the sensors
-
-
-
+// this is the smallest angular increment that is reportable by the sensors
+const double increment = (double)360/16384;
+char sign[] = "+";
+char tics[] = "000000"
 
 ///////////////////////////////////////////////////////////////////////////////
 //
@@ -30,7 +30,7 @@ const double increment = (double) 360 / 16384;  // this is the smallest angular 
 ///////////////////////////////////////////////////////////////////////////////
 //
 // pad the Tics value with leading zeros and return a string
-String padTic(unsigned int tic, String Sign);
+tics padTic(unsigned int tic, sign);
 ///////////////////////////////////////////////////////////////////////////////
 //
 // Calculate Even parity of word
@@ -38,21 +38,15 @@ byte calcEvenParity(word value);
 
 ///////////////////////////////////////////////////////////////////////////////
 //
-// Read the sensor REG_DATA register
-unsigned int readSensor(int cs);
-///////////////////////////////////////////////////////////////////////////////
-//
-// This just trims the bottom 14 bits off of a sensor read
-unsigned int readTic(int cs);
-///////////////////////////////////////////////////////////////////////////////
-//
-// Return the minimal angular separation for two angeles.  Returns between 0 and 180 for any two input values
+// Return the minimal angular separation for two angeles.
+// Returns between 0 and 180 for any two input values
 double angSep(double angOne, double angTwo);
 ///////////////////////////////////////////////////////////////////////////////
 //
 // return the circular mean of the angles using the atan2 method
 // takes a pointer to an array of angles
 double circAve( double *angsToAve);
+int expSmooth(int oldVal, int newVal, float smoothingFactor);
 ///////////////////////////////////////////////////////////////////////////////
 //
 // aCircSmth

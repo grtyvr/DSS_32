@@ -22,13 +22,20 @@ Thanks to Adafruit for being so AWESOME!  And for the graphics libraries.
 const int ledPin = 13;  // Status led
 const int azPin = 5;
 const int alPin = 15;
+const int numSamples = 31;
+const float smoothingFactor = 0.9;
+const int numInitLoops = 20;
 
 // the value of the current Azimuth and Altitude angle that we will report back to Sky Safari
-double aCircSmthAzAng = 0;
-double aCircSmthAlAng = 0;
-// the arrays that will store the most recent numToAverage angles
-double smthAzAngs[numToAve];
-double smthAlAngs[numToAve];
+int newAzAng = 0;
+int newAlAng = 0;
+// store the old angles for use in the smoothing of the sensor data
+int oldAzAng = 0;
+int oldAzAng = 0;
+
+// the strings we send back to SkySafari
+char azTics[] = "00000+";
+char alTics[] = "00000+";
 
 // uncomment the next line to turn on debugging
 //#define DEBUGGING
@@ -85,24 +92,11 @@ boolean alreadyConnected = false; // whether or not the client was connected pre
 //
 ///////////////////////////////////////////////////////////////////////////////
 //
-// Function definitions for WiFi
+// Function declaration
 //
-void printWifiStatus() {
-  // print the SSID of the network you're attached to:
-  Serial.print("SSID: ");
-  Serial.println(WiFi.SSID());
+unsigned int readSensor(int cs);
+void printWifiStatus();
 
-  // print your WiFi shield's IP address:
-  IPAddress ip = WiFi.localIP();
-  Serial.print("IP Address: ");
-  Serial.println(ip);
-
-  // print the received signal strength:
-  long rssi = WiFi.RSSI();
-  Serial.print("signal strength (RSSI):");
-  Serial.print(rssi);
-  Serial.println(" dBm");
-}
 //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -117,20 +111,21 @@ SPIClass * vspi = NULL;
 
 
 void setup() {
-//  sensor.init();
+  display.begin();  // throw up a splash screen here  ???
   // initialize an instance of the SPIClass attached to vspi
   vspi = new SPIClass(VSPI);
-
-  vspi->begin();                                                        // Wake up the buss
+  // Wake up the bus
+  vspi->begin();
   // fill up our smoothing arrays with data
-  for (int i = 1; i <= numToAve; i++){
-    word rawData = readTic(azPin);
-    aCircSmthAzAng = aCircSmth(ticsToAng(rawData), 1, aCircSmthAzAng, smthAzAngs);
-    rawData = readTic(alPin);
-    aCircSmthAlAng = aCircSmth(ticsToAng(rawData), 2, aCircSmthAlAng, smthAlAngs);
+  for (int i = 0; i < numInitLoops; i++){
+    // Store the bottom 14 bits
+    word rawData = readSensor(alPin) & 0x3FFF;
+    oldAlAng = newAlAng;
+    newAlAng = expSmooth(oldAlAng, newAlAng, smoothingFactor);
+    rawData = readSensor(azPin) & 0x3FFF;
+    oldAzAng = newAzAng;
+    newAzAng = expSmooth(oldAzAng, newAzAng, smoothingFactor);
   }
-
-  display.begin();
 
   pinMode(ledPin, OUTPUT);
   pinMode(buttonPin, INPUT_PULLDOWN);
@@ -172,25 +167,26 @@ void setup() {
 } // end setup
 
 void loop() {
-  word rawData = readTic(azPin);
-  rawData &= 0x3FFE; // discard the least significant bit
+  word rawData = readSensor(azPin);
+  // Discard the top two and bottom bit
+  rawData &= 0x3FFE;
   aCircSmthAzAng = aCircSmth(ticsToAng(rawData), 1, aCircSmthAzAng, smthAzAngs);
   #ifdef DEBUGGING
     Serial.print("Raw Angle: ");
     Serial.print(ticsToAngle(rawData));
     Serial.print(" CircSmooth Az: ");
-    Serial.print(advancedCircularSmoothAzimuthAngle);
+    Serial.print(aCircSmthAzAng);
   #endif
-  rawData = readTic(alPin);
-  rawData &= 0x3FFE; // discard the least significant bit(s)
+  // Discard the top two and bottom bit
+  rawData = readSensor(alPin);
+  rawData &= 0x3FFE;
   aCircSmthAlAng = aCircSmth(ticsToAng(rawData), 2, aCircSmthAlAng, smthAlAngs);
   #ifdef DEBUGGING
     Serial.print("Raw Angle: ");
     Serial.print(ticsToAngle(rawData));
     Serial.print(" CircSmooth Al: ");
-    Serial.println(advancedCircularSmoothAltitudeAngle);
+    Serial.println(aCircSmthAlAngle);
   #endif
-//  delay(10);
 
   char tmp_string[12];
   long newPosition = myEnc.read();
@@ -284,4 +280,64 @@ void loop() {
     oldPosition = newPosition;
     Serial.println(newPosition);
   }
+}
+///////////////////////////////////////////////////////////////////////////////
+//
+// Function Definitions
+//
+void printWifiStatus() {
+  // print the SSID of the network you're attached to:
+  Serial.print("SSID: ");
+  Serial.println(WiFi.SSID());
+
+  // print your WiFi shield's IP address:
+  IPAddress ip = WiFi.localIP();
+  Serial.print("IP Address: ");
+  Serial.println(ip);
+
+  // print the received signal strength:
+  long rssi = WiFi.RSSI();
+  Serial.print("signal strength (RSSI):");
+  Serial.print(rssi);
+  Serial.println(" dBm");
+}
+///////////////////////////////////////////////////////////////////////////////
+//
+// Read the sensor REG_DATA register
+//
+// ToDo:  This is a 32 bit chip.  Why!? am i splitting into high and low byte
+//         rewrite this to use transfer16()
+unsigned int readSensor(int cs){
+  unsigned int data;
+  unsigned int cmdHbyte;
+  unsigned int cmdLbyte;
+  unsigned int datHbyte;
+  unsigned int datLbyte;
+  pinMode(cs, OUTPUT);
+  word command = AS5048_CMD_READ | AS5048_REG_DATA;                        // Set up the command we will send
+  command |= calcEvenParity(command) <<15;                            // assign the parity bit
+  cmdHbyte = highByte(command);                                   // split it into bytes
+  cmdLbyte = lowByte(command);                                     //
+  vspi->beginTransaction(SPISettings(spiClk, MSBFIRST, SPI_MODE1));
+  digitalWrite(cs, LOW);                                             // Drop ssl to enable the AS5048's
+  datHbyte = vspi->transfer(cmdHbyte);                         // send the initial read command
+  datLbyte = vspi->transfer(cmdLbyte);
+  digitalWrite(cs, HIGH);                                            // disable the AS5048's
+  digitalWrite(cs, LOW);                                             // Drop ssl to enable the AS5048's
+  datHbyte = vspi->transfer(cmdHbyte);                         // send the initial read command
+  datLbyte = vspi->transfer(cmdLbyte);
+  digitalWrite(cs, HIGH);                                            // disable the AS5048's
+  vspi->endTransaction();
+  data = datHbyte;                                               // Store the high byte in my 16 bit varriable
+  data = data << 8;                                                   // shift left 8 bits
+  data = data | datLbyte;                                         // tack on the low byte
+  #ifdef DEBUGGING
+    Serial.println();
+    Serial.print("Sent Command: ");
+    Serial.println(command, BIN);
+    Serial.print("To register: ");
+    Serial.println(AS5048_REG_DATA, BIN);
+    Serial.println(data);
+  #endif
+  return data;
 }
