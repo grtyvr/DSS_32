@@ -10,6 +10,8 @@ https://github.com/ZoetropeLabs/AS5048A-Arduino
 Thanks to Paul Stoffregen for the encoder library
 Thanks to Adafruit for being so AWESOME!  And for the graphics libraries.
 
+Version 0.2 - "Life should be simple"
+
  */
 #include <stdlib.h>
 #include <Arduino.h>
