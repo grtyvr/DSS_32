@@ -17,7 +17,16 @@ Thanks to Adafruit for being so AWESOME!  And for the graphics libraries.
 #include <Encoder.h>            // Paul Stoffregen Rotary Encoder Library
 #include <U8g2lib.h>            // U8g2 Library
 #include <SPI.h>
-#include "sensors.h"
+
+// uncomment the next line to turn on debugging
+//#define DEBUGGING
+
+#define AS5048_CMD_READ 0x4000
+#define AS5048_REG_AGC 0x3FFD
+#define AS5048_REG_MAG 0x3FFE
+#define AS5048_REG_DATA 0x3FFF
+#define AS5048_REG_ERR 0x1
+#define AS5048_CMD_NOP 0x0
 
 const int ledPin = 13;  // Status led
 const int azPin = 5;
@@ -27,18 +36,15 @@ const float smoothingFactor = 0.9;
 const int numInitLoops = 20;
 
 // the value of the current Azimuth and Altitude angle that we will report back to Sky Safari
-int newAzAng = 0;
 int newAlAng = 0;
+int newAzAng = 0;
 // store the old angles for use in the smoothing of the sensor data
-int oldAzAng = 0;
+int oldAlAng = 0;
 int oldAzAng = 0;
 
 // the strings we send back to SkySafari
 char azTics[] = "00000+";
 char alTics[] = "00000+";
-
-// uncomment the next line to turn on debugging
-//#define DEBUGGING
 
 ///////////////////////////////////////////////////////////////////////////////
 //
@@ -94,9 +100,10 @@ boolean alreadyConnected = false; // whether or not the client was connected pre
 //
 // Function declaration
 //
-unsigned int readSensor(int cs);
+int readSensor(int cs);
 void printWifiStatus();
-
+byte calcEvenParity(word value);
+int expSmooth(int oldVal, int newVal, float smoothingFactor);
 //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -121,10 +128,10 @@ void setup() {
     // Store the bottom 14 bits
     word rawData = readSensor(alPin) & 0x3FFF;
     oldAlAng = newAlAng;
-    newAlAng = expSmooth(oldAlAng, newAlAng, smoothingFactor);
+    newAlAng = expSmooth(oldAlAng, rawData, smoothingFactor);
     rawData = readSensor(azPin) & 0x3FFF;
     oldAzAng = newAzAng;
-    newAzAng = expSmooth(oldAzAng, newAzAng, smoothingFactor);
+    newAzAng = expSmooth(oldAzAng, rawData, smoothingFactor);
   }
 
   pinMode(ledPin, OUTPUT);
@@ -167,25 +174,32 @@ void setup() {
 } // end setup
 
 void loop() {
-  word rawData = readSensor(azPin);
-  // Discard the top two and bottom bit
-  rawData &= 0x3FFE;
-  aCircSmthAzAng = aCircSmth(ticsToAng(rawData), 1, aCircSmthAzAng, smthAzAngs);
+  word rawData = readSensor(alPin);
+  // Data is in the bottom 14 bits
+  rawData &= 0x3FFF;
+  oldAlAng = newAlAng;
+  newAlAng = expSmooth(oldAlAng, rawData, smoothingFactor);
   #ifdef DEBUGGING
     Serial.print("Raw Angle: ");
     Serial.print(ticsToAngle(rawData));
-    Serial.print(" CircSmooth Az: ");
-    Serial.print(aCircSmthAzAng);
-  #endif
-  // Discard the top two and bottom bit
-  rawData = readSensor(alPin);
-  rawData &= 0x3FFE;
-  aCircSmthAlAng = aCircSmth(ticsToAng(rawData), 2, aCircSmthAlAng, smthAlAngs);
-  #ifdef DEBUGGING
-    Serial.print("Raw Angle: ");
-    Serial.print(ticsToAngle(rawData));
+    Serial.print(rawData);
     Serial.print(" CircSmooth Al: ");
+    Serial.print(aCircSmthAzAng);
+    Serial.print("  expSmooth Al: ");
+    Serial.print(newAlAng);
+  #endif
+  rawData = readSensor(azPin);
+  rawData &= 0x3FFF;
+  oldAzAng = newAzAng;
+  newAzAng = expSmooth(oldAzAng, rawData, smoothingFactor);
+  #ifdef DEBUGGING
+    Serial.print("   Raw Angle: ");
+    Serial.print(ticsToAngle(rawData));
+    Serial.println(rawData);
+    Serial.print("  expSmooth Az: ");
+    Serial.print(" CircSmooth Az: ");
     Serial.println(aCircSmthAlAngle);
+    Serial.println(newAzAng);
   #endif
 
   char tmp_string[12];
@@ -209,11 +223,9 @@ void loop() {
     display.setDrawColor(0);
     display.drawBox(55,24,24,24);
     display.setDrawColor(1);
-    dtostrf(aCircSmthAlAng,10,2,tmp_string);
-//    itoa(advancedCircularSmoothAltitudeAngle, tmp_string, 10);
+    itoa(newAlAng, tmp_string, 10);
     display.drawStr(55,36,tmp_string);
-    dtostrf(aCircSmthAzAng,10,2,tmp_string);
-//    itoa(advancedCircularSmoothAzimuthAngle, tmp_string, 10);
+    itoa(newAzAng, tmp_string, 10);
     display.drawStr(55,48,tmp_string);
   } while ( display.nextPage() );
 
@@ -228,17 +240,12 @@ void loop() {
     if (thisClient.connected()) {
       if (thisClient.available() > 0) {
         Serial.println(thisClient.read());
-        // if there are chars to read....
-        // lets print a response and discard the rest of the bytes
-        thisClient.print(padTic(angToTics(aCircSmthAzAng), "+"));
-        thisClient.print("\t");
-        thisClient.print(padTic(angToTics(aCircSmthAlAng), "+"));
-        thisClient.print("\r\n");
+        char encoderResponse[20];
+        // pack the integers into the character array with tabs and returns
+        sprintf(encoderResponse, "%i\t%i\r\n",newAlAng,newAzAng);
+        thisClient.println(encoderResponse);
         #ifdef DEBUGGING
-          Serial.print("Azimuth tic: ");
-          Serial.print("00000+");
-          Serial.print(" Altitude tic: ");
-          Serial.println("00000+");
+          Serial.println(encoderResponse);
         #endif
         // discard remaining bytes
         thisClient.flush();
@@ -281,6 +288,7 @@ void loop() {
     Serial.println(newPosition);
   }
 }
+
 ///////////////////////////////////////////////////////////////////////////////
 //
 // Function Definitions
@@ -305,32 +313,23 @@ void printWifiStatus() {
 //
 // Read the sensor REG_DATA register
 //
-// ToDo:  This is a 32 bit chip.  Why!? am i splitting into high and low byte
-//         rewrite this to use transfer16()
-unsigned int readSensor(int cs){
+int readSensor(int cs){
   unsigned int data;
-  unsigned int cmdHbyte;
-  unsigned int cmdLbyte;
-  unsigned int datHbyte;
-  unsigned int datLbyte;
   pinMode(cs, OUTPUT);
-  word command = AS5048_CMD_READ | AS5048_REG_DATA;                        // Set up the command we will send
-  command |= calcEvenParity(command) <<15;                            // assign the parity bit
-  cmdHbyte = highByte(command);                                   // split it into bytes
-  cmdLbyte = lowByte(command);                                     //
+  // Set up the command we will send
+  word command = AS5048_CMD_READ | AS5048_REG_DATA;
+  command |= calcEvenParity(command) <<15;
   vspi->beginTransaction(SPISettings(spiClk, MSBFIRST, SPI_MODE1));
-  digitalWrite(cs, LOW);                                             // Drop ssl to enable the AS5048's
-  datHbyte = vspi->transfer(cmdHbyte);                         // send the initial read command
-  datLbyte = vspi->transfer(cmdLbyte);
-  digitalWrite(cs, HIGH);                                            // disable the AS5048's
-  digitalWrite(cs, LOW);                                             // Drop ssl to enable the AS5048's
-  datHbyte = vspi->transfer(cmdHbyte);                         // send the initial read command
-  datLbyte = vspi->transfer(cmdLbyte);
-  digitalWrite(cs, HIGH);                                            // disable the AS5048's
+  // Drop cs low to enable the AS5048
+  digitalWrite(cs, LOW);
+  data = vspi->transfer16(command);
+  digitalWrite(cs, HIGH);
+  digitalWrite(cs, LOW);
+  // you have to poll the chip twice.  Data from previous command comes
+  // back on the next SPI transfer
+  data = vspi->transfer16(command);
+  digitalWrite(cs, HIGH);
   vspi->endTransaction();
-  data = datHbyte;                                               // Store the high byte in my 16 bit varriable
-  data = data << 8;                                                   // shift left 8 bits
-  data = data | datLbyte;                                         // tack on the low byte
   #ifdef DEBUGGING
     Serial.println();
     Serial.print("Sent Command: ");
@@ -340,4 +339,73 @@ unsigned int readSensor(int cs){
     Serial.println(data);
   #endif
   return data;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// Calculate Even parity of word
+byte calcEvenParity(word value){
+  byte count = 0;
+  // loop through the 16 bits
+  for (byte i = 0; i < 16; i++) {
+    // if the rightmost bit is 1 increment our counter
+    if (value & 0x1) {
+      count++;
+    }
+    // shift off the rightmost bit
+    value >>=1;
+  }
+  // all odd binaries end in 1
+  return count & 0x1;
+}
+///////////////////////////////////////////////////////////////////////////////
+//
+// http://damienclarke.me/code/posts/writing-a-better-noise-reducing-analogread
+//
+///////////////////////////////////////////////////////////////////////////////
+//
+// return the exponentially smoothed value paying close attention to
+// how we need to wrap the smoothing out around the transition from
+// 2^14 back to 0
+//
+//
+int expSmooth(int oldVal, int newVal, float smoothingFactor){
+  int retVal = oldVal;
+  // do some bounds checking
+  if (smoothingFactor > 1){
+    smoothingFactor = 1;
+  } else if (smoothingFactor <0 ){
+    smoothingFactor = 0;
+  }
+  // make sure we have not wrapped around
+  // we do that by making sure that our old value is not more than half
+  // of the total range away from the new value
+  // For example:
+  //    1 ---> 16383 is just 3 tic
+  //  We want to do something reasonable with that sort of thing
+  //
+  if (oldVal - newVal > 8192){
+    // we have wrapped from High to LOW
+    // so move the new value out past the high end
+    // calculate what the smoothed value would be as if the range was wider
+    // and if that new value would move us out of range, then return
+    // the wrapped value
+    newVal += 16384;
+    retVal = (int) ((oldVal * smoothingFactor) + newVal * ( 1 - smoothingFactor)) % 16384;
+  } else if (newVal - oldVal > 8192){
+    // here we have wrapped from low to high
+    // so move the new value to the low end ( may be negative but it still works)
+    // calculate what the smoothed value would be as if the range was wider
+    // and if that new value would move us out of range, then return
+    // the wrapped value
+    newVal -= 16384;
+    retVal = (int) ((oldVal * smoothingFactor) + newVal * ( 1 - smoothingFactor));
+    // this could be negative.  If it is we have to wrap back to the top....
+    if (retVal < 0){
+      retVal += 16384;
+    }
+  } else {
+    retVal = (int) ((oldVal * smoothingFactor) + newVal * ( 1 - smoothingFactor));
+  }
+  return retVal;
 }
