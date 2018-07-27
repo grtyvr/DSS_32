@@ -124,7 +124,6 @@ SPIClass * vspi = NULL;
 
 void setup() {
   pinMode(33, OUTPUT);
-  display.begin();  // throw up a splash screen here  ???
   // initialize an instance of the SPIClass attached to vspi
   vspi = new SPIClass(VSPI);
   // Wake up the bus
@@ -169,6 +168,21 @@ void setup() {
     }
   #endif
 
+  display.begin();  // throw up a splash screen here  ???
+//  display.firstPage();
+//  do {
+/*
+    display.setDrawColor(0);
+    display.drawBox(0,0,128,64);
+    display.setDrawColor(1);
+    //display.drawStr(0,12,"Hello World!");
+    display.drawStr(0,17,"Digital Setting Circles");
+    display.drawStr(0,34,"        Version 0.2");
+    display.setFont(u8g2_font_helvB10_tf);
+    display.drawStr(0,42, "Setting up WiFi Access Point");
+    display.drawStr(0,54, "SSID: ");
+*/
+//  } while ( display.nextPage() );
   // start the angle server:
   server.begin();
   webServer.begin();
@@ -177,7 +191,7 @@ void setup() {
   #else
     printWifiStatus();
   #endif
-
+  delay(5000);
 } // end setup
 
 void loop() {
@@ -215,7 +229,6 @@ void loop() {
   display.firstPage();
   do {
     display.setFont(u8g2_font_courB08_tf);
-    //display.drawStr(0,12,"Hello World!");
     display.drawStr(0,12,"Button Presses  : ");
     display.drawStr(0,24,"Encoder Position: ");
     display.setDrawColor(0);
