@@ -33,9 +33,9 @@ Version 0.2 - "Life should be simple"
 const int ledPin = 13;  // Status led
 const int azPin = 5;
 const int alPin = 15;
-const int numSamples = 31;
+//const int numSamples = 31;
 const float smoothingFactor = 0.9;
-const int numInitLoops = 20;
+const int numInitLoops = 40;
 
 // the value of the current Azimuth and Altitude angle that we will report back to Sky Safari
 int newAlAng = 0;
@@ -45,8 +45,8 @@ int oldAlAng = 0;
 int oldAzAng = 0;
 
 // the strings we send back to SkySafari
-char azTics[] = "00000+";
-char alTics[] = "00000+";
+//char azTics[] = "00000+";
+//char alTics[] = "00000+";
 
 ///////////////////////////////////////////////////////////////////////////////
 //
@@ -96,7 +96,10 @@ int keyIndex = 0;            // your network key Index number (needed only for W
 int status = WL_IDLE_STATUS;
 
 WiFiServer server(23);
+WiFiServer webServer(80);
+
 boolean alreadyConnected = false; // whether or not the client was connected previously
+boolean webClientConnected = false;
 //
 ///////////////////////////////////////////////////////////////////////////////
 //
@@ -120,6 +123,7 @@ SPIClass * vspi = NULL;
 
 
 void setup() {
+  pinMode(33, OUTPUT);
   display.begin();  // throw up a splash screen here  ???
   // initialize an instance of the SPIClass attached to vspi
   vspi = new SPIClass(VSPI);
@@ -165,8 +169,9 @@ void setup() {
     }
   #endif
 
-  // start the server:
+  // start the angle server:
   server.begin();
+  webServer.begin();
   // you're connected now, so print out the status:
   #ifdef AP
   #else
@@ -232,7 +237,6 @@ void loop() {
   } while ( display.nextPage() );
 
   // wait for a new client:
-
   WiFiClient thisClient = server.available();
   // when the client sends the first byte, say hello:
   while (thisClient) {
@@ -258,7 +262,56 @@ void loop() {
       alreadyConnected = false;
     }
   } // end this client
+  WiFiClient webClient = webServer.available();
+  if (webClient) {
+    Serial.println("New Web Client");
+    String currentLine = "";
+    if (!webClientConnected) {
+      webClientConnected = true;
+    }
+    while (webClient.connected()) {
+      if (webClient.available()) {
+        char c = webClient.read();
+        Serial.write(c);
+        if (c == '\n') {                    // if the byte is a newline character
 
+          // if the current line is blank, you got two newline characters in a row.
+          // that's the end of the client HTTP request, so send a response:
+          if (currentLine.length() == 0) {
+            // HTTP headers always start with a response code (e.g. HTTP/1.1 200 OK)
+            // and a content-type so the client knows what's coming, then a blank line:
+            webClient.println("HTTP/1.1 200 OK");
+            webClient.println("Content-type:text/html");
+            webClient.println();
+
+            // the content of the HTTP response follows the header:
+            webClient.print("Click <a href=\"/H\">here</a> to turn the LED on pin 5 on.<br>");
+            webClient.print("Click <a href=\"/L\">here</a> to turn the LED on pin 5 off.<br>");
+
+            // The HTTP response ends with another blank line:
+            webClient.println();
+            // break out of the while loop:
+            break;
+          } else {    // if you got a newline, then clear currentLine:
+            currentLine = "";
+          }
+        } else if (c != '\r') {  // if you got anything else but a carriage return character,
+          currentLine += c;      // add it to the end of the currentLine
+        }
+
+        // Check to see if the client request was "GET /H" or "GET /L":
+        if (currentLine.endsWith("GET /H")) {
+          digitalWrite(33, HIGH);               // GET /H turns the LED on
+        }
+        if (currentLine.endsWith("GET /L")) {
+          digitalWrite(33, LOW);                // GET /L turns the LED off
+        }
+      }
+    }
+    // close the connection:
+    webClient.stop();
+    Serial.println("Client Disconnected.");
+}
 // blink status led
   unsigned long currentMillis = millis();
   if (currentMillis - previousMillis >= 500){
