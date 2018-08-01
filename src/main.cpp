@@ -34,8 +34,12 @@ const int ledPin = 13;  // Status led
 const int azPin = 5;
 const int alPin = 15;
 //const int numSamples = 31;
-const float smoothingFactor = 0.9;
+// tweak these for speed of damping and speed of main.
+const int del = 1;
+const float smoothingFactor = 0.85;
+//
 const int numInitLoops = 40;
+
 
 // the value of the current Azimuth and Altitude angle that we will report back to Sky Safari
 int newAlAng = 0;
@@ -78,7 +82,7 @@ int buttonState = 0;
 //
 // Set up the display
 // using HW I2C we only need to tell it the rotation
-U8G2_SSD1306_128X64_NONAME_F_HW_I2C display(U8G2_R0);
+U8G2_SSD1306_128X64_NONAME_F_HW_I2C display(U8G2_R2);
 
 ///////////////////////////////////////////////////////////////////////////////
 //
@@ -120,8 +124,11 @@ static const int spiClk = 1000000; // 1 MHz
 SPIClass * vspi = NULL;
 //
 ///////////////////////////////////////////////////////////////////////////////
-
-
+//*****************************************************************************
+//*
+//* Setup
+//*
+//*****************************************************************************
 void setup() {
   pinMode(33, OUTPUT);
   // initialize an instance of the SPIClass attached to vspi
@@ -169,20 +176,19 @@ void setup() {
   #endif
 
   display.begin();  // throw up a splash screen here  ???
-//  display.firstPage();
-//  do {
 /*
-    display.setDrawColor(0);
-    display.drawBox(0,0,128,64);
-    display.setDrawColor(1);
-    //display.drawStr(0,12,"Hello World!");
-    display.drawStr(0,17,"Digital Setting Circles");
-    display.drawStr(0,34,"        Version 0.2");
-    display.setFont(u8g2_font_helvB10_tf);
-    display.drawStr(0,42, "Setting up WiFi Access Point");
-    display.drawStr(0,54, "SSID: ");
+  display.clearBuffer();
+  display.setDrawColor(0);
+  display.drawBox(0,0,128,64);
+  display.setDrawColor(1);
+  //display.drawStr(0,12,"Hello World!");
+  display.drawStr(0,17,"Digital Setting Circles");
+  display.drawStr(0,34,"        Version 0.2");
+  display.setFont(u8g2_font_helvB10_tf);
+  display.drawStr(0,42, "Setting up WiFi Access Point");
+  display.drawStr(0,54, "SSID: ");
+  display.sendBuffer();
 */
-//  } while ( display.nextPage() );
   // start the angle server:
   server.begin();
   webServer.begin();
@@ -191,15 +197,24 @@ void setup() {
   #else
     printWifiStatus();
   #endif
-  delay(5000);
 } // end setup
-
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+//*****************************************************************************
+//*
+//*                   LOOP
+//*
+//*
 void loop() {
   word rawData = readSensor(alPin);
   // Data is in the bottom 14 bits
   rawData &= 0x3FFF;
   oldAlAng = newAlAng;
   newAlAng = expSmooth(oldAlAng, rawData, smoothingFactor);
+  // let's slow down the main loop a bit.  See if that helps.
+  //
+  delay(del);
   #ifdef DEBUGGING
     Serial.print("Raw Angle: ");
     Serial.print(ticsToAngle(rawData));
@@ -213,6 +228,7 @@ void loop() {
   rawData &= 0x3FFF;
   oldAzAng = newAzAng;
   newAzAng = expSmooth(oldAzAng, rawData, smoothingFactor);
+  delay(del);
   #ifdef DEBUGGING
     Serial.print("   Raw Angle: ");
     Serial.print(ticsToAngle(rawData));
@@ -226,8 +242,9 @@ void loop() {
   char tmp_string[12];
   long newPosition = myEnc.read();
 
-  display.firstPage();
-  do {
+//  display.firstPage();
+//  do {
+    display.clearBuffer();
     display.setFont(u8g2_font_courB08_tf);
     display.drawStr(0,12,"Button Presses  : ");
     display.drawStr(0,24,"Encoder Position: ");
@@ -247,7 +264,8 @@ void loop() {
     display.drawStr(55,36,tmp_string);
     itoa(newAzAng, tmp_string, 10);
     display.drawStr(55,48,tmp_string);
-  } while ( display.nextPage() );
+    display.sendBuffer();
+//  } while ( display.nextPage() );
 
   // wait for a new client:
   WiFiClient thisClient = server.available();
@@ -261,7 +279,7 @@ void loop() {
         Serial.println(thisClient.read());
         char encoderResponse[20];
         // pack the integers into the character array with tabs and returns
-        sprintf(encoderResponse, "%i\t%i\r\n",newAlAng,newAzAng);
+        sprintf(encoderResponse, "%i\t%i\r\n",newAzAng,newAlAng);
         thisClient.println(encoderResponse);
         #ifdef DEBUGGING
           Serial.println(encoderResponse);
@@ -356,6 +374,11 @@ void loop() {
     Serial.println(newPosition);
   }
 }
+//*  end loop
+//*****************************************************************************
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+
 
 ///////////////////////////////////////////////////////////////////////////////
 //
