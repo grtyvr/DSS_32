@@ -48,10 +48,6 @@ int newAzAng = 0;
 int oldAlAng = 0;
 int oldAzAng = 0;
 
-// the strings we send back to SkySafari
-//char azTics[] = "00000+";
-//char alTics[] = "00000+";
-
 ///////////////////////////////////////////////////////////////////////////////
 //
 // Set up the rotary encoder stuff
@@ -198,8 +194,8 @@ void setup() {
     printWifiStatus();
   #endif
 } // end setup
-///////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////
+
+
 ///////////////////////////////////////////////////////////////////////////////
 //*****************************************************************************
 //*
@@ -207,6 +203,11 @@ void setup() {
 //*
 //*
 void loop() {
+//  ucg.setFont(ucg_font_ncenR14r);
+//  ucg.setPrintPos(0,25);
+//  ucg.setColor(255, 255, 255);
+//  ucg.print("Hello World!");
+
   word rawData = readSensor(alPin);
   // Data is in the bottom 14 bits
   rawData &= 0x3FFF;
