@@ -16,9 +16,10 @@ Version 0.2 - "Life should be simple"
 #include <stdlib.h>
 #include <Arduino.h>
 #include <WiFi.h>
-#include <Encoder.h>            // Paul Stoffregen Rotary Encoder Library
+//#include <Encoder.h>            // Paul Stoffregen Rotary Encoder Library
 #include <U8g2lib.h>            // U8g2 Library
 #include <SPI.h>
+#include "OneButton.h"
 
 // uncomment the next line to turn on debugging
 //#define DEBUGGING
@@ -30,15 +31,15 @@ Version 0.2 - "Life should be simple"
 #define AS5048_REG_ERR 0x1
 #define AS5048_CMD_NOP 0x0
 
-const int ledPin = 13;  // Status led
+const int ledPin = 22;  // Status led
 const int azPin = 5;
-const int alPin = 15;
+const int alPin = 4;
 //const int numSamples = 31;
 // tweak these for speed of damping and speed of main.
 const int del = 1;
 const float smoothingFactor = 0.85;
 //
-const int numInitLoops = 40;
+const int numInitLoops = 20;
 
 
 // the value of the current Azimuth and Altitude angle that we will report back to Sky Safari
@@ -50,27 +51,39 @@ int oldAzAng = 0;
 
 ///////////////////////////////////////////////////////////////////////////////
 //
-// Set up the rotary encoder stuff
+// Set up the UI stuff
 //
-const int buttonPin = 14;
+const int buttonUpPin = 15;
+const int buttonDownPin = 14;
+const int buttonEnterPin = 27;
+
+OneButton buttonUp(buttonUpPin, true);
+OneButton buttonDown(buttonDownPin, true);
+OneButton buttonEnter(buttonEnterPin, true);
+
+volatile int buttonUpCounter = 0;
+volatile int buttonDownCounter = 0;
+volatile int buttonEnterCounter = 0;
+
 // this could change in unexpected ways ( in an interupt )
-volatile int interruptCounter = 0;
-int numberOfInterrupts = 0;
-Encoder myEnc(4,0);
+//volatile int interruptCounter = 0;
+//int numberOfInterrupts = 0;
+// Encoder myEnc(4,0);
 
 // Set up interupt
-portMUX_TYPE mux = portMUX_INITIALIZER_UNLOCKED;
+//portMUX_TYPE mux = portMUX_INITIALIZER_UNLOCKED;
 
-void IRAM_ATTR handleInterrupt() {
-  portENTER_CRITICAL_ISR(&mux);
-  interruptCounter++;
-  portEXIT_CRITICAL_ISR(&mux);
-}
+//void IRAM_ATTR handleInterrupt() {
+//  portENTER_CRITICAL_ISR(&mux);
+//  interruptCounter++;
+//  portEXIT_CRITICAL_ISR(&mux);
+//}
 
-long oldPosition  = -999;
+//long oldPosition  = -999;
 unsigned long previousMillis = 0;
 int ledState = LOW;             // ledState used to set the LED
 int buttonState = 0;
+
 //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -78,7 +91,7 @@ int buttonState = 0;
 //
 // Set up the display
 // using HW I2C we only need to tell it the rotation
-U8G2_SSD1306_128X64_NONAME_F_HW_I2C display(U8G2_R2);
+U8G2_SSD1306_128X64_NONAME_F_HW_I2C display(U8G2_R0);
 
 ///////////////////////////////////////////////////////////////////////////////
 //
@@ -109,6 +122,10 @@ int readSensor(int cs);
 void printWifiStatus();
 byte calcEvenParity(word value);
 int expSmooth(int oldVal, int newVal, float smoothingFactor);
+void buttonUpAction();
+void buttonDownAction();
+void buttonEnterAction();
+
 //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -126,7 +143,7 @@ SPIClass * vspi = NULL;
 //*
 //*****************************************************************************
 void setup() {
-  pinMode(33, OUTPUT);
+  //pinMode(33, OUTPUT);
   // initialize an instance of the SPIClass attached to vspi
   vspi = new SPIClass(VSPI);
   // Wake up the bus
@@ -142,15 +159,26 @@ void setup() {
     newAzAng = expSmooth(oldAzAng, rawData, smoothingFactor);
   }
 
-  pinMode(ledPin, OUTPUT);
-  pinMode(buttonPin, INPUT_PULLDOWN);
+//  pinMode(ledPin, OUTPUT);
+//  pinMode(buttonPinUp, INPUT_PULLDOWN);
   // trigger the interrupt on falling edge
-  attachInterrupt(digitalPinToInterrupt(buttonPin), handleInterrupt, RISING);
+//  attachInterrupt(digitalPinToInterrupt(buttonPinUp), handleInterrupt, RISING);
+
+  // link the myClickFunction function to be called on a click event.   
+  buttonUp.attachClick(buttonUpAction);
+  buttonDown.attachClick(buttonDownAction);
+  buttonEnter.attachClick(buttonEnterAction);
+
+  // link the doubleclick function to be called on a doubleclick event.   
+  //button.attachDoubleClick(myDoubleClickFunction);
+
+  // set 80 msec. debouncing time. Default is 50 msec.
+//  buttonUp.setDebounceTicks(80);
 
   //Initialize serial
-  Serial.begin(115200);
+  Serial.begin(9600);
   delay(1000);
-  Serial.println("Basic Encoder Test:");
+//  Serial.println("Basic Encoder Test:");
 
   #ifdef AP
     Serial.println("Setting up WiFi Access Point");
@@ -203,6 +231,13 @@ void setup() {
 //*
 //*
 void loop() {
+  unsigned long now = millis();
+
+  // keep watching the push button:
+  buttonUp.tick();
+  buttonDown.tick();
+  buttonEnter.tick();
+  
 //  ucg.setFont(ucg_font_ncenR14r);
 //  ucg.setPrintPos(0,25);
 //  ucg.setColor(255, 255, 255);
@@ -218,10 +253,10 @@ void loop() {
   delay(del);
   #ifdef DEBUGGING
     Serial.print("Raw Angle: ");
-    Serial.print(ticsToAngle(rawData));
+    //Serial.print(ticsToAngle(rawData));
     Serial.print(rawData);
-    Serial.print(" CircSmooth Al: ");
-    Serial.print(aCircSmthAzAng);
+    //Serial.print(" CircSmooth Al: ");
+    //Serial.print(aCircSmthAzAng);
     Serial.print("  expSmooth Al: ");
     Serial.print(newAlAng);
   #endif
@@ -232,29 +267,29 @@ void loop() {
   delay(del);
   #ifdef DEBUGGING
     Serial.print("   Raw Angle: ");
-    Serial.print(ticsToAngle(rawData));
+    //Serial.print(ticsToAngle(rawData));
     Serial.println(rawData);
     Serial.print("  expSmooth Az: ");
-    Serial.print(" CircSmooth Az: ");
-    Serial.println(aCircSmthAlAngle);
+    //Serial.print(" CircSmooth Az: ");
+    //Serial.println(aCircSmthAlAngle);
     Serial.println(newAzAng);
   #endif
 
   char tmp_string[12];
-  long newPosition = myEnc.read();
+//  long newPosition = myEnc.read();
 
 //  display.firstPage();
 //  do {
     display.clearBuffer();
     display.setFont(u8g2_font_courB08_tf);
-    display.drawStr(0,12,"Button Presses  : ");
-    display.drawStr(0,24,"Encoder Position: ");
+    display.drawStr(0,12,"Button 1 Presses  : ");
+    display.drawStr(0,24,"Button 2 Presses  : ");
     display.setDrawColor(0);
     display.drawBox(105,0,24,24);
     display.setDrawColor(1);
-    itoa(numberOfInterrupts, tmp_string, 10);
+    itoa(buttonUpCounter, tmp_string, 10);
     display.drawStr(105,12,tmp_string);
-    itoa(newPosition, tmp_string, 10);
+    itoa(buttonDownCounter, tmp_string, 10);
     display.drawStr(105,24,tmp_string);
     display.drawStr(0,36, "Altitude: ");
     display.drawStr(0,48, " Azimuth: ");
@@ -331,6 +366,7 @@ void loop() {
           currentLine += c;      // add it to the end of the currentLine
         }
 
+/*
         // Check to see if the client request was "GET /H" or "GET /L":
         if (currentLine.endsWith("GET /H")) {
           digitalWrite(33, HIGH);               // GET /H turns the LED on
@@ -338,6 +374,8 @@ void loop() {
         if (currentLine.endsWith("GET /L")) {
           digitalWrite(33, LOW);                // GET /L turns the LED off
         }
+*/
+
       }
     }
     // close the connection:
@@ -356,24 +394,23 @@ void loop() {
   }
   digitalWrite(ledPin, ledState);
 // Update the rotary Encoder
-
-  if(interruptCounter > 0) {
+//  if(interruptCounter > 0) {
     // Since we do not have access to NoInterrupts and Interrupts yet
     // we use the portENTER_CRITICAL portEXIT_CRITICAL
-    portENTER_CRITICAL(&mux);
-    interruptCounter--;
-    portEXIT_CRITICAL(&mux);
+//    portENTER_CRITICAL(&mux);
+//    interruptCounter--;
+//    portEXIT_CRITICAL(&mux);
 
     // handle interrupt
-    numberOfInterrupts++;
-    Serial.print("Button press.  Total: ");
-    Serial.println(numberOfInterrupts);
-  }
+//    numberOfInterrupts++;
+//    Serial.print("Button press.  Total: ");
+//    Serial.println(numberOfInterrupts);
+//  }
 
-  if (newPosition != oldPosition) {
-    oldPosition = newPosition;
-    Serial.println(newPosition);
-  }
+//  if (newPosition != oldPosition) {
+//    oldPosition = newPosition;
+//    Serial.println(newPosition);
+//  }
 }
 //*  end loop
 //*****************************************************************************
@@ -500,4 +537,14 @@ int expSmooth(int oldVal, int newVal, float smoothingFactor){
     retVal = (int) ((oldVal * smoothingFactor) + newVal * ( 1 - smoothingFactor));
   }
   return retVal;
+}
+
+void buttonUpAction(){
+  buttonUpCounter += 1;
+}
+void buttonDownAction(){
+  buttonDownCounter += 1;
+}
+void buttonEnterAction(){
+  buttonEnterCounter += 1;
 }
