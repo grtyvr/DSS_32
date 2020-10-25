@@ -36,8 +36,8 @@ const int azPin = 5;
 const int alPin = 4;
 //const int numSamples = 31;
 // tweak these for speed of damping and speed of main.
-const int del = 1;
-const float smoothingFactor = 0.85;
+const int del = 100;
+const float smoothingFactor = 0.01;
 //
 const int numInitLoops = 20;
 
@@ -56,6 +56,7 @@ int oldAzAng = 0;
 const int buttonUpPin = 15;
 const int buttonDownPin = 14;
 const int buttonEnterPin = 27;
+
 
 OneButton buttonUp(buttonUpPin, true);
 OneButton buttonDown(buttonDownPin, true);
@@ -520,7 +521,7 @@ int expSmooth(int oldVal, int newVal, float smoothingFactor){
     // and if that new value would move us out of range, then return
     // the wrapped value
     newVal += 16384;
-    retVal = (int) ((oldVal * smoothingFactor) + newVal * ( 1 - smoothingFactor)) % 16384;
+    retVal = (int) ((oldVal * smoothingFactor) + (newVal * ( 1 - smoothingFactor))) % 16384;
   } else if (newVal - oldVal > 8192){
     // here we have wrapped from low to high
     // so move the new value to the low end ( may be negative but it still works)
@@ -528,13 +529,13 @@ int expSmooth(int oldVal, int newVal, float smoothingFactor){
     // and if that new value would move us out of range, then return
     // the wrapped value
     newVal -= 16384;
-    retVal = (int) ((oldVal * smoothingFactor) + newVal * ( 1 - smoothingFactor));
+    retVal = (int) ((oldVal * smoothingFactor) + (newVal * ( 1 - smoothingFactor)));
     // this could be negative.  If it is we have to wrap back to the top....
     if (retVal < 0){
       retVal += 16384;
     }
   } else {
-    retVal = (int) ((oldVal * smoothingFactor) + newVal * ( 1 - smoothingFactor));
+    retVal = (int) ((oldVal * smoothingFactor) + (newVal * ( 1 - smoothingFactor)));
   }
   return retVal;
 }
