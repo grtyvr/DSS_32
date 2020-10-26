@@ -33,14 +33,22 @@ Version 0.2 - "Life should be simple"
 
 const int ledPin = 22;  // Status led
 const int azPin = 5;
-const int alPin = 4;
-//const int numSamples = 31;
-// tweak these for speed of damping and speed of main.
-const int del = 100;
+const int alPin
+private: 100;
 const float smoothingFactor = 0.01;
-//
-const int numInitLoops = 20;
 
+const int numInitLoops = 20;
+    
+void init(int cs, float smoothingFactor);
+int readSensor(int cs,SPIClass * vspi);
+int readSensor(void);
+// int readSmothSensor(void);
+
+byte calcEvenParity(word value);
+int expSmooth(int oldVal, int newVal, float smoothingFactor);
+//    int simpleMovingAverage(int newVal);
+// double advancedCircularSmooth(double newAngle, int axis, double currentCircSmoothValue, double *pastReadings) 
+// void setLastValue(int lastVal);
 
 // the value of the current Azimuth and Altitude angle that we will report back to Sky Safari
 int newAlAng = 0;
