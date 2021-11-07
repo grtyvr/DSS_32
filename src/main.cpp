@@ -22,7 +22,7 @@ Version 0.2 - "Life should be simple"
 #include "OneButton.h"
 
 // uncomment the next line to turn on debugging
-//#define DEBUGGING
+#define DEBUGGING
 
 #define AS5048_CMD_READ 0x4000
 #define AS5048_REG_AGC 0x3FFD
@@ -33,8 +33,8 @@ Version 0.2 - "Life should be simple"
 
 const int ledPin = 22;  // Status led
 const int azPin = 5;
-const int alPin
-private: 100;
+const int alPin = 15;
+const int del = 100;
 const float smoothingFactor = 0.01;
 
 const int numInitLoops = 20;
@@ -241,7 +241,7 @@ void setup() {
 //*
 void loop() {
   unsigned long now = millis();
-
+  delay(1000);
   // keep watching the push button:
   buttonUp.tick();
   buttonDown.tick();
@@ -472,7 +472,7 @@ int readSensor(int cs){
     Serial.println();
     Serial.print("Sent Command: ");
     Serial.println(command, BIN);
-    Serial.print("To register: ");
+    Serial.print(" To register: ");
     Serial.println(AS5048_REG_DATA, BIN);
     Serial.println(data);
   #endif
