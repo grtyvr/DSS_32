@@ -80,7 +80,7 @@ class AS5048A{
          * 
          */
         uint8_t getErrors();
-        
+
         bool error();
     private:
         uint16_t getDiag();

@@ -12,8 +12,8 @@ void test_led_builtin_pin_number(void) {
 
 void test_output_state_high(void) {
     // display 
-    digitalWrite(22, HIGH); // SCL
-    digitalWrite(21, HIGH); // SDA
+//    digitalWrite(22, HIGH); // SCL
+//    digitalWrite(21, HIGH); // SDA
     // Encoders SPI
 //    digitalWrite(19, HIGH); // CIPO
 //    digitalWrite(18, HIGH); // SCK
@@ -43,8 +43,8 @@ void test_output_state_high(void) {
 
 void test_output_state_low(void) {
     // display 
-    digitalWrite(22, LOW); // SCL
-    digitalWrite(21, LOW); // SDA
+//    digitalWrite(22, LOW); // SCL
+//    digitalWrite(21, LOW); // SDA
     // Encoders SPI
 //    digitalWrite(19, LOW); // CIPO
 //    digitalWrite(18, LOW); // SCK
@@ -57,8 +57,8 @@ void test_output_state_low(void) {
     digitalWrite(17, LOW); // DOWN
 
         // display 
-    TEST_ASSERT_EQUAL(LOW, digitalRead(22)); // SCL
-    TEST_ASSERT_EQUAL(LOW, digitalRead(21)); // SDA
+//    TEST_ASSERT_EQUAL(LOW, digitalRead(22)); // SCL
+//    TEST_ASSERT_EQUAL(LOW, digitalRead(21)); // SDA
     // Encoders SPI
 //    TEST_ASSERT_EQUAL(LOW, digitalRead(19)); // CIPO
 //    TEST_ASSERT_EQUAL(LOW, digitalRead(18)); // SCK
@@ -76,8 +76,8 @@ void setup() {
     // if board doesn't support software reset via Serial.DTR/RTS
     delay(2000);
 
-    pinMode(22, OUTPUT); // SCL
-    pinMode(21, OUTPUT); // SDA
+//    pinMode(22, OUTPUT); // SCL
+//    pinMode(21, OUTPUT); // SDA
     // Encoders SPI
 //    pinMode(19, OUTPUT); // CIPO
 //    pinMode(18, OUTPUT); // SCK
