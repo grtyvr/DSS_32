@@ -2,7 +2,7 @@
 
 #include "AS5048.hpp"
 
-//#define AS5048A_DEBUG
+// #define AS5048A_DEBUG
 
 // SPI Register Map
 const uint16_t AS5048_CMD_NOP = 0x0;      // no operation, dummy information.  Use this to get result of last command
@@ -113,12 +113,21 @@ AS5048A::AS5048A(uint8_t arg_cs, uint8_t nullZone){
   pinMode(_cs, OUTPUT);
   _errorFlag = false;
   _angle = 0.0;                           // initialize to zero degrees
+  uint8_t _bitOrder = MSBFIRST;
+  uint32_t _clock = 1000000;
+  uint8_t _spiMode = SPI_MODE1;
 }
 
 void AS5048A::init(uint32_t clock, uint8_t bitOrder, uint8_t dataMode){
   // set up the SPI interface so that we can communicate with the chip
   // use mode 1, 
   settings = SPISettings(clock, bitOrder, dataMode);
+  // VSPI defines the standard pinout as:
+  // 5 = PS
+  // 18 = SCK
+  // 19 = CIPO
+  // 23 = COPI
+  // 
   vspi = new SPIClass(VSPI);
   // Wake up the bus
   vspi->begin();
@@ -314,12 +323,12 @@ uint16_t AS5048A::read(uint16_t REGISTER){
   data = vspi->transfer16(command);
   digitalWrite(_cs, HIGH);
   vspi->endTransaction();
-  #ifdef DEBUGGING
+  #ifdef AS5048A_DEBUG
     Serial.println();
     Serial.print("Sent Command: ");
     Serial.println(command, BIN);
     Serial.print(" To register: ");
-    Serial.println(AS5048_REG_DATA, BIN);
+    Serial.println(REGISTER, BIN);
     Serial.println(data);
   #endif
   return data;
