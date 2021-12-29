@@ -20,6 +20,7 @@ class AS5048A{
          *  @param {uint8_t} nullZone The number of ticks to use as a null zone.
          */
         AS5048A(uint8_t arg_cs, uint8_t nullZone = 3);
+        
         /**
          * getMagnitude
          * One of the diagnostic features of the AS5048 is that it can report the magnitude 
@@ -29,12 +30,14 @@ class AS5048A{
         void setSPIBus(SPIClass *spi);
         
         uint16_t getMagnitude();
+        
         /**
          * getAngle
          * @return {uint16_t} angle as a value in the interval [0,2^14-1].  Rotation counter clockwise 
          * from the current zero position
          */
         uint16_t getAngle();
+        
         /**
          * getExpSmoothAngle
          * @param {float} smoothingFactor
@@ -44,6 +47,7 @@ class AS5048A{
          * new_angle = old_angle*(1 - smoothingFactor) + new_angle*smoothingFactor
          */
         uint16_t getExpSmoothAngle(float smoothingFactor);
+        
         /**
          * getMeanAngle
          * @param {int} numSamples
@@ -52,17 +56,20 @@ class AS5048A{
          * This value is the circular mean of the angles read.
          */
         uint16_t getMeanAngle(int numSamples);
+        
         /**
          * printDiagnostics
          * Print diagnostic information to the serial port 
          */
         void printDiagnostics();
+        
         /**
          * getGain
          * @return {uint8_t} Return the current Gain register value. The gain is stored in the 
          * first 8 bits of the Diagnostics + Automatic Gain Control register 0x3FFD
          */
         uint8_t getGain();
+        
         /**
          * getErrors
          * @return {uint8_t} Return the error flags if set.
