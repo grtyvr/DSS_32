@@ -4,13 +4,13 @@
 
 class AS5048A{
     private:
+        SPISettings _settings;
+        SPIClass* _spi;
         bool _errorFlag;
         uint8_t _errorValue;
         uint8_t _cs;
         float _angle;  // stores the last angle read
         uint8_t _nullZone = 0;
-
-    SPISettings settings;
 
     public:
         /**
@@ -21,24 +21,13 @@ class AS5048A{
          */
         AS5048A(uint8_t arg_cs, uint8_t nullZone = 3);
         /**
-         * @brief Initializer sets up the SPI bus for communications with the chip.  
-         * 
-         * @param clock default value of 1KHz
-         * @param bitOrder default value of MSBFIRST
-         * @param dataMode default value of SPI_MODE1 
-         */
-        void init(uint32_t clock = 1000000, uint8_t bitOrder = MSBFIRST, uint8_t dataMode = SPI_MODE1);
-        /**
-         * Close the SPI bus.  If you need to work with other devices on the same bus that do not 
-         * have the same paramaters be sure to close the bus when you are done with a transaction.
-         */
-        void close();
-        /**
          * getMagnitude
          * One of the diagnostic features of the AS5048 is that it can report the magnitude 
          * of the magnetic field
          * @return {uint16_t} magnitude.
          */
+        void setSPIBus(SPIClass *spi);
+        
         uint16_t getMagnitude();
         /**
          * getAngle
