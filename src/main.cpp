@@ -39,19 +39,22 @@ void drawDisplay(int alAng, int azAng);
 
 ///////////////////////////////////////////////////////////////////////////////
 //
-// encoder objects
+// pointer to store the SPI bus we will use
+SPIClass * vspi = NULL;
 
-AS5048A alEnc(alPin);
-AS5048A azEnc(azPin);
+AS5048A alEnc(alPin, 3);
+AS5048A azEnc(azPin, 3);
+//
+///////////////////////////////////////////////////////////////////////////////
 
 ///////////////////////////////////////////////////////////////////////////////
 //
 // Set up the UI 
 //
 // Buttons
-const int buttonUpPin = 4;
+const int buttonUpPin = 17;
 const int buttonEnterPin = 16;
-const int buttonDownPin = 17;
+const int buttonDownPin = 4;
 
 OneButton buttonUp(buttonUpPin, true, true);
 OneButton buttonDown(buttonDownPin, true, true);
@@ -77,14 +80,14 @@ U8G2_SSD1306_128X64_NONAME_F_HW_I2C display(U8G2_R2);
 // Define this if you want to run as an Access Point.  If undefined it will connect to the
 // SSID with the password below....
 // 
-// #define AP
+#define AP
 
-const char *apssid = "ESPap";
-const char *appassword = "gofish";
+const char *ssid = my_ssid;
+const char *pass = my_pass;
+const char *apssid = "DSS_AP";
+const char *appass = "gofish";
 
 int keyIndex = 0;            // your network key Index number (needed only for WEP)
-
-int status = WL_IDLE_STATUS;
 
 // Server for SkySafari
 WiFiServer server(4001);
@@ -99,7 +102,6 @@ void ledOffEvent();
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-
 ///////////////////////////////////////////////////////////////////////////////
 //*****************************************************************************
 //*
@@ -107,13 +109,21 @@ void ledOffEvent();
 //*
 //*****************************************************************************
 void setup() {
-  //Initialize serial
+  // Initialize serial
   Serial.begin(115200);
-  delay(500);
+  delay(1500);
+
+  // Initialize SPI Bus.  VSPI defines the standard pinout as:
+  // SCK = 18, CIPO = 19, COPI = 23, PS = 5
+  vspi = new SPIClass(VSPI);
+  // Wake up the bus
+  vspi->begin();
+  alEnc.setSPIBus(vspi);
+  azEnc.setSPIBus(vspi);
 
   // the humble status led
   pinMode(ledPin, OUTPUT);
-  ledOnEvent();
+//  ledOnEvent();
 
   // link the myClickFunction function to be called on a click event.   
   buttonUp.attachClick(buttonUpPress);
@@ -129,29 +139,24 @@ void setup() {
     Serial.println(WiFi.softAPIP());
   #else
     // attempt to connect to Wifi network:
-    while ( status != WL_CONNECTED) {
-      Serial.print("Attempting to connect to SSID: ");
-      Serial.println(ssid);
-      // Connect to WPA/WPA2 network. Change this line if using open or WEP network:
-      status = WiFi.begin(ssid, pass);
-
+    Serial.print("Attempting to connect to SSID: ");
+    Serial.println(ssid);
+    WiFi.begin(ssid, pass);
+    while ( WiFi.status() != WL_CONNECTED) {
       // wait 5 seconds for connection:
-      delay(5000);
-      // you're connected now, so print out the status:
-      printWifiStatus();
+      delay(500);
+      Serial.print(".");
     }
+    // you're connected now, so print out the status:
+    printWifiStatus();
   #endif
 
   // Initialize the display
   display.begin();
 
-
   // start the angle server:
   server.begin();
 
-  // initialize the encoders
-  alEnc.init();
-  azEnc.init();
 } // end setup
 
 
@@ -170,8 +175,10 @@ void loop() {
   buttonEnter.tick();
 
   // read the encoders
-  int alAng = alEnc.getAngle();
-  int azAng = azEnc.getAngle();
+  int alAng = alEnc.getMeanAngle(10);
+  int azAng = azEnc.getMeanAngle(10);
+//  int alAng = 100;
+//  int azAng = 1000;
 
   drawDisplay(alAng, azAng);
 
@@ -184,13 +191,13 @@ void loop() {
     }
     if (thisClient.connected()) {
       if (thisClient.available() > 0) {
-        Serial.println(thisClient.read(),HEX);
+        Serial.println(thisClient.read());
         char encoderResponse[20];
         // pack the integers into the character array with tabs and returns
-        sprintf(encoderResponse, "%i\t%i\r\n",0,0);
-        thisClient.println(encoderResponse);
+        sprintf(encoderResponse, "+%i\t+%i\r\n",alAng,azAng);
+        thisClient.print(encoderResponse);
         #ifdef DEBUGGING
-          Serial.println(encoderResponse);
+          Serial.print(encoderResponse);
         #endif
         // discard remaining bytes
         thisClient.flush();
@@ -203,16 +210,16 @@ void loop() {
   } // end this client
 
 // blink status led
-  unsigned long currentMillis = millis();
-  if (currentMillis - previousMillis >= 500){
-    previousMillis = currentMillis;
-    if (ledState == LOW){
-      ledState = HIGH;
-    } else {
-      ledState = LOW;
-    }
-  }
-  digitalWrite(ledPin, ledState);
+  // unsigned long currentMillis = millis();
+  // if (currentMillis - previousMillis >= 500){
+  //   previousMillis = currentMillis;
+  //   if (ledState == LOW){
+  //     ledState = HIGH;
+  //   } else {
+  //     ledState = LOW;
+  //   }
+  // }
+  // digitalWrite(ledPin, ledState);
 }
 //*  end loop
 //*****************************************************************************
