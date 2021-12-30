@@ -10,15 +10,21 @@ Version 0.3 - "Tidy is better"
 #include <stdlib.h>
 #include <Arduino.h>
 #include <WiFi.h>
-#include <U8g2lib.h>            // U8g2 Library
+#include <U8g2lib.h>
 #include <SPI.h>
-#include "OneButton.h"
 #include "secrets.h"
 #include "AS5048.hpp"
-#include "EventLoop.hpp"
+#include "Buttons.hpp"
+#include "Loop.hpp"
+
+using namespace lr;
+
+/// The Event Loop
+///
+event::BasicLoop<event::StaticStorage<16>> gEventLoop;
 
 // uncomment the next line to turn on debugging
-#define DEBUGGING
+//#define DEBUGGING
 
 const int ledPin = 27;  // Status led
 const int azPin = 5;    // SPI CS J1
@@ -30,10 +36,10 @@ const int del = 100;
 // Function declaration
 //
 void printWifiStatus();
-void buttonUpPress();
-void buttonDownPress();
-void buttonEnterPress();
 void drawDisplay(int alAng, int azAng);
+void processButtonPresses();
+void ledOnEvent();
+void ledOffEvent();
 //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -51,21 +57,9 @@ AS5048A azEnc(azPin, 3);
 //
 // Set up the UI 
 //
-// Buttons
-const int buttonUpPin = 17;
-const int buttonEnterPin = 16;
-const int buttonDownPin = 4;
-
-OneButton buttonUp(buttonUpPin, true, true);
-OneButton buttonDown(buttonDownPin, true, true);
-OneButton buttonEnter(buttonEnterPin, true, true);
-
 volatile int buttonUpCounter = 0;
 volatile int buttonDownCounter = 0;
 volatile int buttonEnterCounter = 0;
-
-unsigned long previousMillis = 0;
-int ledState = LOW;             // ledState used to set the LED
 
 // display
 // using HW I2C we only need to tell it the rotation
@@ -93,9 +87,6 @@ int keyIndex = 0;            // your network key Index number (needed only for W
 WiFiServer server(4001);
 
 boolean alreadyConnected = false; // whether or not the client was connected previously
-
-void ledOnEvent();
-void ledOffEvent();
 //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -120,13 +111,11 @@ void setup() {
 
   // the humble status led
   pinMode(ledPin, OUTPUT);
-  EventLoop::initialize();
+  // and buttons
+  Buttons::initialize();
+  // Register the button press processor
+  event::mainLoop().addPollEvent(&processButtonPresses);
   ledOnEvent();
-
-  // link the myClickFunction function to be called on a click event.   
-  buttonUp.attachClick(buttonUpPress);
-  buttonDown.attachClick(buttonDownPress);
-  buttonEnter.attachClick(buttonEnterPress);
 
   // Set up networking
   #ifdef AP
@@ -157,26 +146,18 @@ void setup() {
 
 } // end setup
 
-
 ///////////////////////////////////////////////////////////////////////////////
 //*****************************************************************************
 //*
 //*                   LOOP
 //*
-//*
 void loop() {
   // Process our event loop
-  EventLoop::loop();
-  // keep watching the push button:
-  buttonUp.tick();
-  buttonDown.tick();
-  buttonEnter.tick();
+  gEventLoop.loopOnce();
 
   // read the encoders
   int alAng = alEnc.getMeanAngle(10);
   int azAng = azEnc.getMeanAngle(10);
-//  int alAng = 100;
-//  int azAng = 1000;
 
   drawDisplay(alAng, azAng);
 
@@ -233,25 +214,32 @@ void printWifiStatus() {
   Serial.println(" dBm");
 }
 
-void buttonUpPress(){
-  Serial.println("Button Up.");
-  buttonUpCounter += 1;
-}
-void buttonDownPress(){
-  buttonDownCounter += 1;
-}
-void buttonEnterPress(){
-  buttonEnterCounter += 1;
+/// Process all button presses.
+///
+void processButtonPresses()
+{
+    switch (Buttons::getNextButtonPress()) {
+    case Buttons::Up:
+        buttonUpCounter += 1;
+        break;
+    case Buttons::OK:
+        buttonEnterCounter += 1;
+        break;
+    case Buttons::Down:
+        buttonDownCounter += 1;
+    default:
+        break;
+    }
 }
 
 void ledOnEvent(){
   digitalWrite(ledPin, HIGH);
-  EventLoop::addDelayedEvent(&ledOffEvent, 800);
+  event::mainLoop().addDelayedEvent(&ledOffEvent, 800_ms);
 }
 
 void ledOffEvent(){
   digitalWrite(ledPin, LOW);
-  EventLoop::addDelayedEvent(&ledOnEvent, 600);
+  event::mainLoop().addDelayedEvent(&ledOnEvent, 600_ms);
 }
 
 void drawDisplay(int alAng, int azAng){
