@@ -15,7 +15,7 @@ Version 0.3 - "Tidy is better"
 #include "OneButton.h"
 #include "secrets.h"
 #include "AS5048.hpp"
-#include "Event.hpp"
+#include "EventLoop.hpp"
 
 // uncomment the next line to turn on debugging
 #define DEBUGGING
@@ -94,9 +94,6 @@ WiFiServer server(4001);
 
 boolean alreadyConnected = false; // whether or not the client was connected previously
 
-// Events for our led
-Event gEvent;
-
 void ledOnEvent();
 void ledOffEvent();
 //
@@ -123,7 +120,8 @@ void setup() {
 
   // the humble status led
   pinMode(ledPin, OUTPUT);
-//  ledOnEvent();
+  EventLoop::initialize();
+  ledOnEvent();
 
   // link the myClickFunction function to be called on a click event.   
   buttonUp.attachClick(buttonUpPress);
@@ -167,8 +165,8 @@ void setup() {
 //*
 //*
 void loop() {
-  unsigned long now = millis();
-  delay(10);
+  // Process our event loop
+  EventLoop::loop();
   // keep watching the push button:
   buttonUp.tick();
   buttonDown.tick();
@@ -208,18 +206,6 @@ void loop() {
       alreadyConnected = false;
     }
   } // end this client
-
-// blink status led
-  // unsigned long currentMillis = millis();
-  // if (currentMillis - previousMillis >= 500){
-  //   previousMillis = currentMillis;
-  //   if (ledState == LOW){
-  //     ledState = HIGH;
-  //   } else {
-  //     ledState = LOW;
-  //   }
-  // }
-  // digitalWrite(ledPin, ledState);
 }
 //*  end loop
 //*****************************************************************************
@@ -260,11 +246,12 @@ void buttonEnterPress(){
 
 void ledOnEvent(){
   digitalWrite(ledPin, HIGH);
-  gEvent = Event(&ledOffEvent, millis() + 800);
+  EventLoop::addDelayedEvent(&ledOffEvent, 800);
 }
 
 void ledOffEvent(){
-  gEvent = Event(&ledOnEvent, millis() + 600);
+  digitalWrite(ledPin, LOW);
+  EventLoop::addDelayedEvent(&ledOnEvent, 600);
 }
 
 void drawDisplay(int alAng, int azAng){
