@@ -1,4 +1,3 @@
-#include "Event.hpp"
 //
 // Event Loop
 // ---------------------------------------------------------------------------
@@ -18,32 +17,27 @@
 // with this program; if not, write to the Free Software Foundation, Inc.,
 // 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 //
-Event::Event()
-    : _call(nullptr), _next(0){
+#include "Loop.hpp"
+
+
+namespace lr {
+namespace event {
+
+
+Loop *Loop::_main = nullptr;
+
+
+Loop::Loop()
+{
+    _main = this;
 }
 
-Event::Event(Function call, uint32_t next)
-    : _call(call), _next(next){
+
+Loop& Loop::main()
+{
+    return *_main;
 }
 
-bool Event::isValid() const{
-    return _call != nullptr;
-}
 
-bool Event::isReady(uint32_t currentTime) const{
-    if (_next == currentTime) {
-        return true;
-    }
-    const auto delta = _next - currentTime;
-    if ((delta & static_cast<uint32_t>(0x80000000ul)) != 0){
-        return true;
-    }
-    return false;
 }
-Event::Function Event::getCall() const{
-    return _call;
-}
-
-void Event::clear(){
-    _call = nullptr;
 }

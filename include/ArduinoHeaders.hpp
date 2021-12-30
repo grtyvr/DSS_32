@@ -1,6 +1,6 @@
-#include "Event.hpp"
+#pragma once
 //
-// Event Loop
+// Default includes fixed for the Arduino environment.
 // ---------------------------------------------------------------------------
 // (c)2019 by Lucky Resistor. See LICENSE for details.
 //
@@ -18,32 +18,16 @@
 // with this program; if not, write to the Free Software Foundation, Inc.,
 // 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 //
-Event::Event()
-    : _call(nullptr), _next(0){
-}
 
-Event::Event(Function call, uint32_t next)
-    : _call(call), _next(next){
-}
 
-bool Event::isValid() const{
-    return _call != nullptr;
-}
+#include <Arduino.h>
 
-bool Event::isReady(uint32_t currentTime) const{
-    if (_next == currentTime) {
-        return true;
-    }
-    const auto delta = _next - currentTime;
-    if ((delta & static_cast<uint32_t>(0x80000000ul)) != 0){
-        return true;
-    }
-    return false;
-}
-Event::Function Event::getCall() const{
-    return _call;
-}
+#undef min
+#undef max
+#include <cstdint>
+#include <ratio>
+#include <limits>
+#include <type_traits>
+#include <initializer_list>
+#include <cstring>
 
-void Event::clear(){
-    _call = nullptr;
-}

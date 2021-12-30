@@ -1,6 +1,5 @@
-#include "Event.hpp"
 //
-// Event Loop
+// Timer for Arduino
 // ---------------------------------------------------------------------------
 // (c)2019 by Lucky Resistor. See LICENSE for details.
 //
@@ -18,32 +17,40 @@
 // with this program; if not, write to the Free Software Foundation, Inc.,
 // 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 //
-Event::Event()
-    : _call(nullptr), _next(0){
+#include "Timer.hpp"
+
+
+#include <Arduino.h>
+
+
+namespace lr {
+namespace Timer {
+
+
+Milliseconds tickMilliseconds()
+{
+    return Milliseconds(::millis());
 }
 
-Event::Event(Function call, uint32_t next)
-    : _call(call), _next(next){
+
+void waitForNextTick()
+{
+    const auto currentValue = ::millis();
+    while (currentValue == ::millis()) {}
 }
 
-bool Event::isValid() const{
-    return _call != nullptr;
+
+void delayMilliseconds(const uint32_t milliseconds)
+{
+    ::delay(milliseconds);
 }
 
-bool Event::isReady(uint32_t currentTime) const{
-    if (_next == currentTime) {
-        return true;
-    }
-    const auto delta = _next - currentTime;
-    if ((delta & static_cast<uint32_t>(0x80000000ul)) != 0){
-        return true;
-    }
-    return false;
-}
-Event::Function Event::getCall() const{
-    return _call;
+
+void delayMicroseconds(const uint32_t microseconds)
+{
+    ::delayMicroseconds(microseconds);
 }
 
-void Event::clear(){
-    _call = nullptr;
+
+}
 }
