@@ -16,6 +16,7 @@ Version 0.3 - "Tidy is better"
 #include "AS5048.hpp"
 #include "Buttons.hpp"
 #include "Loop.hpp"
+#include "Display.hpp"
 
 using namespace lr;
 
@@ -63,7 +64,7 @@ volatile int buttonEnterCounter = 0;
 
 // display
 // using HW I2C we only need to tell it the rotation
-U8G2_SSD1306_128X64_NONAME_F_HW_I2C display(U8G2_R2);
+// U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R2);
 //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -139,7 +140,7 @@ void setup() {
   #endif
 
   // Initialize the display
-  display.begin();
+  Display::initialize();
 
   // start the angle server:
   server.begin();
@@ -159,7 +160,7 @@ void loop() {
   int alAng = alEnc.getMeanAngle(10);
   int azAng = azEnc.getMeanAngle(10);
 
-  drawDisplay(alAng, azAng);
+  Display::update(alAng, azAng);
 
   // wait for a new client:
   WiFiClient thisClient = server.available();
@@ -240,37 +241,4 @@ void ledOnEvent(){
 void ledOffEvent(){
   digitalWrite(ledPin, LOW);
   event::mainLoop().addDelayedEvent(&ledOnEvent, 600_ms);
-}
-
-void drawDisplay(int alAng, int azAng){
-  char tmp_string[12];
-  display.clearBuffer();
-  display.setFont(u8g2_font_courB08_tf);
-
-  display.drawStr(0,12,"Up:");
-  int increment = display.getStrWidth("Up:"); 
-  itoa(buttonUpCounter, tmp_string, 10);
-  display.drawStr(increment + 3,12,tmp_string);
-
-  display.drawStr(40,12,"Ok:");
-  increment = display.getStrWidth("OK:"); 
-  itoa(buttonEnterCounter, tmp_string, 10);
-  display.drawStr(40 + increment + 3,12,tmp_string);
-
-  display.drawStr(80,12,"Dn:");
-  increment = display.getStrWidth("Dn:"); 
-  itoa(buttonDownCounter, tmp_string, 10);
-  display.drawStr(80 + increment + 3,12,tmp_string);  
-
-  display.setDrawColor(1);
-  display.drawStr(0,36, "Altitude: ");
-  display.drawStr(0,48, " Azimuth: ");
-  display.setDrawColor(0);
-  display.drawBox(55,24,24,24);
-  display.setDrawColor(1);
-  itoa(alAng, tmp_string, 10);
-  display.drawStr(55,36,tmp_string);
-  itoa(azAng, tmp_string, 10);
-  display.drawStr(55,48,tmp_string);
-  display.sendBuffer();
 }
