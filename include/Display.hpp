@@ -18,14 +18,12 @@
 // with this program; if not, write to the Free Software Foundation, Inc.,
 // 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 //
-
-#include "ArduinoHeaders.hpp"
 #include <U8g2lib.h>
 #include <SPI.h>
+#include "ArduinoHeaders.hpp"
+#include "Encoders.hpp"
 
-
-
-namespace lr {
+namespace grt {
 namespace Display {
 
 extern U8G2_SSD1306_128X64_NONAME_F_HW_I2C *u8g2; 
@@ -53,7 +51,7 @@ extern U8G2_SSD1306_128X64_NONAME_F_HW_I2C *u8g2;
 
     // update the display with new data
     //
-    void update(int az, int al);
+    void update();
 
 } // namespace Display
 } // namespace lr
