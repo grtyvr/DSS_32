@@ -22,7 +22,6 @@
 #include "U8g2lib.h"
 
 
-
 namespace lr {
 namespace Display {
     
