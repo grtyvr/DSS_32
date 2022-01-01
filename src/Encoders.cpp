@@ -61,5 +61,12 @@ Position getPosition(){
     return curPos;
 }
 
+Position getMaxTics(){
+    Position maxTics = {
+        alEnc.getMaxTics(),
+        azEnc.getMaxTics()
+    };
+    return maxTics;
+}
 }
 }

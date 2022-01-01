@@ -165,6 +165,10 @@ uint16_t AS5048A::getMeanAngle(int numSamples){
   return retVal; 
 }
 
+uint16_t AS5048A::getMaxTics(){
+  return _maxTics;
+}
+
 void AS5048A::printDiagnostics(){
   uint16_t rawData = getDiag();
   Serial.print("AGC Value: ");

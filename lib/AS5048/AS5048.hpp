@@ -30,6 +30,7 @@ class AS5048A{
         uint8_t _cs;
         float _angle;  // stores the last angle read
         uint8_t _nullZone = 0;
+        uint16_t _maxTics = 16384;
 
     public:
         /**
@@ -97,6 +98,9 @@ class AS5048A{
         uint8_t getErrors();
 
         bool error();
+
+        uint16_t getMaxTics();
+
     private:
         uint16_t getDiag();
         uint8_t calcEvenParity(uint16_t value);
