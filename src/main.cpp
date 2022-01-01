@@ -9,15 +9,11 @@ Version 0.3 - "Tidy is better"
  */
 #include <stdlib.h>
 #include <Arduino.h>
-#include <WiFi.h>
-#include "secrets.h"
-#include "AS5048.hpp"
 #include "Buttons.hpp"
 #include "Loop.hpp"
 #include "Display.hpp"
 #include "Network.hpp"
 #include "AngleServer.hpp"
-#include "Encoders.hpp"
 
 using namespace lr;
 using namespace grt;
@@ -73,6 +69,7 @@ void setup() {
 
   // Initialize the display
   Display::initialize();
+  event::mainLoop().addRepeatedEvent(&Display::update,60_ms); // about 16 FPS
 
   // start the network
   Network::initialize();
@@ -93,13 +90,6 @@ void setup() {
 void loop() {
   // Process our event loop
   gEventLoop.loopOnce();
-
-  Encoders::Position curPos = Encoders::getPosition();
-  int alAng = curPos.altitude;
-  int azAng = curPos.azimuth;
-
-  Display::update(alAng, azAng);
-
 }
 //*  end loop
 //*****************************************************************************

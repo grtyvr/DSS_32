@@ -19,10 +19,9 @@
 //
 
 #include "Display.hpp"
-#include "U8g2lib.h"
+#include "Encoders.hpp"
 
-
-namespace lr {
+namespace grt {
 namespace Display {
     
 // The type of display.
@@ -46,7 +45,10 @@ void getMode();
 
 // update the display with new data
 //
-void update(int az, int al){
+void update(){
+  Encoders::Position curPos = Encoders::getPosition();
+  int alAng = curPos.altitude;
+  int azAng = curPos.azimuth;
 
   char tmp_string[12];
   u8g2->clearBuffer();
@@ -57,9 +59,9 @@ void update(int az, int al){
   u8g2->setDrawColor(0);
   u8g2->drawBox(55,24,24,24);
   u8g2->setDrawColor(1);
-  itoa(al, tmp_string, 10);
+  itoa(alAng, tmp_string, 10);
   u8g2->drawStr(55,36,tmp_string);
-  itoa(az, tmp_string, 10);
+  itoa(azAng, tmp_string, 10);
   u8g2->drawStr(55,48,tmp_string);
   u8g2->sendBuffer();
 }
