@@ -40,24 +40,51 @@ void processClient(){
   WiFiClient client = server->available();
   
   if (client){
-    Serial.println("New connection from Sky Safari");
-    // read the encoders
-    Encoders::Position curPos = Encoders::getPosition();
-    int alAng = curPos.altitude;
-    int azAng = curPos.azimuth;
-    // if (!alreadyConnected) {
-    //   alreadyConnected = true;
-    // }
-    if (client.connected()) {
+    #ifdef DEBUGGING
+      Serial.println("New connection");
+    #endif
+    // Encoders::Position curPos = Encoders::getPosition();
+    // int alAng = curPos.altitude;
+    // int azAng = curPos.azimuth;
+    char encoderResponse[20];
+    while (client.connected()) {
       if (client.available() > 0) {
-        Serial.println((char)client.read());
-        char encoderResponse[20];
-        // pack the integers into the character array with tabs and returns
-        sprintf(encoderResponse, "+%i\t+%i\r\n",alAng,azAng);
-        client.print(encoderResponse);
-        #ifdef DEBUGGING
-          Serial.print(encoderResponse);
-        #endif
+        char c = client.read();
+        Serial.println(c);
+        switch (c) {
+          case 'H':
+          {
+            Encoders::Position maxTics = Encoders::getMaxTics();
+            sprintf(encoderResponse, "+%i\t+%i\r\n",maxTics.altitude, maxTics.azimuth);
+            client.print(encoderResponse);
+            #ifdef DEBUGGING
+              Serial.println(encoderResponse);
+            #endif
+            break;
+          }
+          case 'Z':
+          {
+            Encoders::Position maxTics = Encoders::getMaxTics();
+            sprintf(encoderResponse, "Z +%i +%i\r\n",maxTics.altitude, maxTics.azimuth);
+            client.print(encoderResponse);
+            #ifdef DEBUGGING
+              Serial.println(encoderResponse);
+            #endif
+            break;
+          }
+          case 'Q':
+          {
+            Encoders::Position curPos = Encoders::getPosition();
+            sprintf(encoderResponse, "+%i\t+%i\r\n",curPos.altitude, curPos.azimuth);
+            client.print(encoderResponse);
+            Serial.println(encoderResponse);
+            break;
+          }
+          default:
+            Serial.print("unrecognized command: ");
+            Serial.println(c);
+            break;
+          }
         // discard remaining bytes
         client.flush();
       }

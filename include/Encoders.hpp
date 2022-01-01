@@ -42,5 +42,7 @@ void initialize();
 ///
 Position getPosition();
 
+Position getMaxTics();
+
 }
 }
