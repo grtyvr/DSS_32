@@ -20,6 +20,7 @@
 
 #include "Display.hpp"
 #include "Encoders.hpp"
+#include "Network.hpp"
 
 namespace grt {
 namespace Display {
@@ -37,11 +38,15 @@ void initialize(){
 
 // Set the mode of the display
 //
-void setMode();
+void setMode(){
+
+}
 
 // Get the mode of the display
 //
-void getMode();
+void getMode(){
+
+}
 
 // update the display with new data
 //
@@ -52,17 +57,23 @@ void update(){
 
   char tmp_string[12];
   u8g2->clearBuffer();
-  u8g2->setFont(u8g2_font_courB08_tf);
+  u8g2->drawFrame(0,0,128,42);
+  u8g2->setFont(u8g2_font_profont17_mr);
   u8g2->setDrawColor(1);
-  u8g2->drawStr(0,36, "Altitude: ");
-  u8g2->drawStr(0,48, " Azimuth: ");
-  u8g2->setDrawColor(0);
-  u8g2->drawBox(55,24,24,24);
-  u8g2->setDrawColor(1);
+  u8g2->drawStr(3,17, "Al: ");
+  u8g2->drawStr(3,37, "Az: ");
+  uint8_t totNumWidth = u8g2->getStrWidth("00000");
+  uint8_t xOffset = 125 - totNumWidth;
   itoa(alAng, tmp_string, 10);
-  u8g2->drawStr(55,36,tmp_string);
+  uint8_t numWidth = u8g2->getStrWidth(tmp_string);
+  uint8_t xPos = xOffset + totNumWidth - numWidth;
+  u8g2->drawStr(xPos,17,tmp_string);
   itoa(azAng, tmp_string, 10);
-  u8g2->drawStr(55,48,tmp_string);
+  numWidth = u8g2->getStrWidth(tmp_string);
+  xPos = xOffset + totNumWidth - numWidth;
+  u8g2->drawStr(xPos,37,tmp_string);
+  u8g2->setFont(u8g2_font_profont12_mr);
+  u8g2->drawStr(3,61,"IP: 192.168.4.1");
   u8g2->sendBuffer();
 }
 
