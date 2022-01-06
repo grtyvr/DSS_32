@@ -1,8 +1,7 @@
-#pragma once
 //
-// Event Loop Example
+// Application 
 // ---------------------------------------------------------------------------
-// (c)2019 by Lucky Resistor. See LICENSE for details.
+// (c)2021 by GRTYVR. See LICENSE for details.
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -19,35 +18,39 @@
 // 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 //
 
+#include "Application.hpp"
+#include "Buttons.hpp"
 
-#include "ArduinoHeaders.hpp"
+namespace grt {
+namespace Application {
 
+using namespace lr;
 
-namespace lr {
-namespace Buttons {
-
-
-/// The buttons.
-///
-enum Button : uint8_t {
-    Up = 0,
-    longUp,
-    OK,
-    longOK,
-    Down,
-    longDown,
-    None = 0xffu
-};
-
-
-/// Initialise this module
-///
-void initialize();
-
-/// Get the next button press.
-///
-Button getNextButtonPress();
-
-
+void processButtonPresses(){
+    switch (Buttons::getNextButtonPress()) {
+    case Buttons::Up:
+        Serial.println("Up");
+        break;
+    case Buttons::longUp:
+        Serial.println("Long Press Up");
+        break;
+    case Buttons::OK:
+        Serial.println("Ok");
+        break;
+    case Buttons::longOK:
+        Serial.println("Long Press Ok");
+        break;
+    case Buttons::Down:
+        Serial.println("Down");
+        break;
+    case Buttons::longDown:
+        Serial.println("Long Press Up");
+        break;
+    default:
+        // nothing to be done
+        break;
+    }
 }
+
+}   
 }

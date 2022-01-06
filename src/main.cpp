@@ -14,6 +14,7 @@ Version 0.3 - "Tidy is better"
 #include "Display.hpp"
 #include "Network.hpp"
 #include "AngleServer.hpp"
+#include "Application.hpp"
 
 using namespace lr;
 using namespace grt;
@@ -31,8 +32,8 @@ const int ledPin = 27;  // Status led
 //
 // Function declaration
 //
-void processButtonPresses();
-void processClientRequest();
+// void processButtonPresses();
+// void processClientRequest();
 void ledOnEvent();
 void ledOffEvent();
 //
@@ -42,9 +43,9 @@ void ledOffEvent();
 //
 // Set up the UI 
 //
-volatile int buttonUpCounter = 0;
-volatile int buttonDownCounter = 0;
-volatile int buttonEnterCounter = 0;
+// volatile int buttonUpCounter = 0;
+// volatile int buttonDownCounter = 0;
+// volatile int buttonEnterCounter = 0;
 //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -61,11 +62,11 @@ void setup() {
 
   // the humble status led
   pinMode(ledPin, OUTPUT);
-  // and buttons
-  Buttons::initialize();
-  // Register the button press processor
-  event::mainLoop().addPollEvent(&processButtonPresses);
   ledOnEvent();
+  
+  // Buttons
+  Buttons::initialize();
+  event::mainLoop().addPollEvent(&Application::processButtonPresses);
 
   // Initialize the display
   Display::initialize();
@@ -103,21 +104,21 @@ void loop() {
 
 /// Process all button presses.
 ///
-void processButtonPresses()
-{
-    switch (Buttons::getNextButtonPress()) {
-    case Buttons::Up:
-        buttonUpCounter += 1;
-        break;
-    case Buttons::OK:
-        buttonEnterCounter += 1;
-        break;
-    case Buttons::Down:
-        buttonDownCounter += 1;
-    default:
-        break;
-    }
-}
+// void processButtonPresses()
+// {
+//     switch (Buttons::getNextButtonPress()) {
+//     case Buttons::Up:
+//         buttonUpCounter += 1;
+//         break;
+//     case Buttons::OK:
+//         buttonEnterCounter += 1;
+//         break;
+//     case Buttons::Down:
+//         buttonDownCounter += 1;
+//     default:
+//         break;
+//     }
+// }
 
 void ledOnEvent(){
   digitalWrite(ledPin, HIGH);
