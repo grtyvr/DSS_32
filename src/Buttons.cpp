@@ -33,6 +33,7 @@ const uint8_t cButtonCount = 3;
 
 /// The pin numbers where the buttons are attached.
 ///
+// const uint8_t cButtonPins[cButtonCount] = {17, 16, 4};
 const uint8_t cButtonPins[cButtonCount] = {17, 16, 4};
 
 /// Initial delay.
@@ -41,7 +42,7 @@ const uint8_t cRepeatDelay = 12;
 
 /// Repeat speed.
 ///
-const uint8_t cRepeatSpeed = 5;
+const uint8_t cRepeatSpeed = 1;
 
 
 /// The button state.
@@ -49,6 +50,7 @@ const uint8_t cRepeatSpeed = 5;
 struct State {
     bool last;
     uint8_t repeatCount;
+    bool longPress;
 };
 
 /// The button states.
@@ -66,9 +68,10 @@ void eventCall()
 {
     for (uint8_t i = 0; i < cButtonCount; ++i) {
         const bool newState = digitalRead(cButtonPins[i]);
-        const auto button = static_cast<Button>(i);
+        const auto button = static_cast<Button>(i*2);  // physical buttons are even numberd
         auto &state = gState[i];
         if (state.last != newState) {
+            state.longPress = false;
             state.last = newState;
             if (!newState) {
                 gButtonBuffer.write(&button, 1);
@@ -76,11 +79,13 @@ void eventCall()
                 state.repeatCount = cRepeatDelay;
             }
         }
-        if (!state.last) {
+        if (!state.last && !state.longPress) {
             state.repeatCount -= 1;
             if (state.repeatCount == 0) {
+                const auto button = static_cast<Button>(i*2+1);  // virtual, longPress buttons are odd
                 gButtonBuffer.write(&button, 1);                
-                state.repeatCount = cRepeatSpeed;
+                // state.repeatCount = cRepeatSpeed;
+                state.longPress = true;
             }
         }
     }

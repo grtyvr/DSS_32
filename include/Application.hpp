@@ -1,8 +1,8 @@
 #pragma once
 //
-// Event Loop Example
+// Application 
 // ---------------------------------------------------------------------------
-// (c)2019 by Lucky Resistor. See LICENSE for details.
+// (c)2021 by GRTYVR. See LICENSE for details.
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -19,35 +19,14 @@
 // 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 //
 
-
 #include "ArduinoHeaders.hpp"
+#include "Buttons.hpp"
+#include "Display.hpp"
 
+namespace grt {
+namespace Application {
 
-namespace lr {
-namespace Buttons {
+void processButtonPresses();
 
-
-/// The buttons.
-///
-enum Button : uint8_t {
-    Up = 0,
-    longUp,
-    OK,
-    longOK,
-    Down,
-    longDown,
-    None = 0xffu
-};
-
-
-/// Initialise this module
-///
-void initialize();
-
-/// Get the next button press.
-///
-Button getNextButtonPress();
-
-
-}
-}
+} // namespace grt
+} // namespace grt
