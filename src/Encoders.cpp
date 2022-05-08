@@ -54,9 +54,10 @@ void initialize(){
 /// Get the encoder readings.
 ///
 Position getPosition(){
+    int numReadings = 1000;
     Position curPos = {
-        alEnc.getExpSmoothAngle(smoothingFactor),
-        azEnc.getExpSmoothAngle(smoothingFactor)
+        alEnc.getMeanAngle(numReadings),
+        azEnc.getMeanAngle(numReadings)
     };
     return curPos;
 }
