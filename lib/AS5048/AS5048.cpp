@@ -232,7 +232,6 @@ uint8_t AS5048A::getErrors(){
 uint16_t AS5048A::read(uint16_t REGISTER){
   // read the sensors REG_DATA register.  Stores the angle.
   unsigned int data;
-  pinMode(_cs, OUTPUT);
   // Set up the command we will send
   word command = AS5048_READ_CMD | REGISTER;
   command |= calcEvenParity(command) <<15;

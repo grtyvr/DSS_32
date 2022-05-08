@@ -44,7 +44,7 @@ void processButtonPresses(){
         Serial.println("Down");
         break;
     case Buttons::longDown:
-        Serial.println("Long Press Up");
+        Serial.println("Long Press Down");
         break;
     default:
         // nothing to be done
