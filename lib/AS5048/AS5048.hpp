@@ -89,13 +89,6 @@ class AS5048A{
          * first 8 bits of the Diagnostics + Automatic Gain Control register 0x3FFD
          */
         uint8_t getGain();
-        
-        /**
-         * getErrors
-         * @return {uint8_t} Return the error flags if set.
-         * 
-         */
-        uint8_t getErrors();
 
         bool error();
 

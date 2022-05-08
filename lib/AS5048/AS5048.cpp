@@ -38,7 +38,9 @@ const uint16_t AS5048_REG_AGC = 0x3FFD;   // Diagnostic and Automatic Gain Contr
 const uint16_t AS5048_REG_MAG = 0x3FFE;   // Magnitude after ATAN calculation bits 0..13
 const uint16_t AS5048_REG_ANGLE = 0x3FFF; // Angle after ATAN calculation and zero position correction if used - bits 0..13
 
-const uint16_t AS5048_READ_CMD = 0x4000;  // bit 15 = 1 for read operation.   
+const uint16_t AS5048_READ_CMD = 0x4000;  // bit 15 = 1 for read operation.
+
+const uint16_t AS5048_CLEAR_ERR = 0x1;    // Clear error flag
 
 AS5048A::AS5048A(uint8_t arg_cs, uint8_t nullZone){
   _settings = SPISettings(1000000, MSBFIRST, SPI_MODE1);
@@ -115,6 +117,7 @@ uint16_t AS5048A::getExpSmoothAngle(float smoothingFactor){
     // the wrapped value
     newAngle += 16384;
     _angle = (_angle * (1 - smoothingFactor)) + (newAngle * smoothingFactor);
+
   } else if (newAngle - _angle > 8192){
     // here we have wrapped from Low to High
     // so move the new value to the low end ( may be negative but it still works)
@@ -150,7 +153,7 @@ uint16_t AS5048A::getMeanAngle(int numSamples){
   // Take the average X and average Y values
   meanX = meanX/numSamples;
   meanY = meanY/numSamples;
-  if ( (meanX == 0.0) & (meanY ==0.0) ){
+  if ( (meanX == 0.0) & (meanY == 0.0) ){
     // pathalogical case of both X and Y being equal to zero as floats!
     retVal = 0;
   } else {
@@ -197,42 +200,9 @@ uint8_t AS5048A::getGain(){
   return read(AS5048_REG_AGC) & 0xFF;
 }
 
-uint8_t AS5048A::getErrors(){
-  _errorFlag = false;
-  // To get the value of the error flags we have to send a special read command
-  // The command clears the ERROR FLAG which is contained in every READ frame.
-  // read the error register of the last command
-  uint8_t retVal;
-  // Set up the command we will send
-  uint16_t cmdClearErrorFlag = 0x4001;  // 0b0100000000000001
-  _spi->beginTransaction(_settings);
-  // Drop cs low to enable the AS5048
-  digitalWrite(_cs, LOW);
-  retVal = _spi->transfer16(cmdClearErrorFlag);
-  digitalWrite(_cs, HIGH);
-  delayMicroseconds(100);
-  digitalWrite(_cs, LOW);
-  // the next two commands are NOP commands 
-  // the first one is to trigger the return of the Error Register contents
-  // and will still have the Error Flag Set.
-  retVal = _spi->transfer16(0x0);
-  digitalWrite(_cs, HIGH);
-  delayMicroseconds(100);
-  digitalWrite(_cs, LOW);
-  // The second one will trigger the clearing of the Error Flag and we do not
-  // get any usefull information back with that command
-  _spi->transfer16(0x0);
-  digitalWrite(_cs, HIGH);
-  _spi->endTransaction();
-
-  return retVal;
-}
-
-
 uint16_t AS5048A::read(uint16_t REGISTER){
   // read the sensors REG_DATA register.  Stores the angle.
   unsigned int data;
-  pinMode(_cs, OUTPUT);
   // Set up the command we will send
   word command = AS5048_READ_CMD | REGISTER;
   command |= calcEvenParity(command) <<15;
@@ -255,7 +225,35 @@ uint16_t AS5048A::read(uint16_t REGISTER){
     Serial.println(REGISTER, BIN);
     Serial.println(data);
   #endif
+  // if bit 15 is set then there was an error on the last command
+  if (data & 0x4000) {
+    command = AS5048_READ_CMD | AS5048_CLEAR_ERR;
+    command |= calcEvenParity(command);
+    _spi->beginTransaction(_settings);
+    digitalWrite(_cs, LOW);
+    data = _spi->transfer16(command);
+    digitalWrite(_cs, HIGH);
+    digitalWrite(_cs, LOW);
+    data = _spi->transfer16(command);
+    digitalWrite(_cs, HIGH);
+    _spi->endTransaction();
+    switch(data & 0x7) {
+      case 0x4:
+        Serial.println("parity error on read.");
+      break;
+      
+      case 0x2:
+        Serial.println("Command Invalid.");
+      break;
+
+      case 0x1:
+        Serial.println("Framing error.");
+      break;
+    }
+    data = 0;  
+  }
   return data;
+
 }
 
 byte AS5048A::calcEvenParity(uint16_t value){
