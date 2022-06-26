@@ -40,15 +40,15 @@ class AS5048A{
          *  @param {uint8_t} nullZone The number of ticks to use as a null zone.
          */
         AS5048A(uint8_t arg_cs, uint8_t nullZone = 3);
-        
+
+        void setSPIBus(SPIClass *spi);
+
         /**
          * getMagnitude
          * One of the diagnostic features of the AS5048 is that it can report the magnitude 
          * of the magnetic field
          * @return {uint16_t} magnitude.
          */
-        void setSPIBus(SPIClass *spi);
-        
         uint16_t getMagnitude();
         
         /**
