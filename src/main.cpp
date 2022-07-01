@@ -15,6 +15,7 @@ Version 0.3 - "Tidy is better"
 #include "Network.hpp"
 #include "AngleServer.hpp"
 #include "Application.hpp"
+#include "WebConfigServer.hpp"
 
 using namespace lr;
 using namespace grt;
@@ -77,9 +78,13 @@ void setup() {
 
   Encoders::initialize();
 
-  // start the angleServer
+  // start the angleServer and poll for clients
   AngleServer::initialize();
   event::mainLoop().addPollEvent(&AngleServer::processClient);
+
+  // start the WebConfigServer and poll for clients
+  WebConfigServer::initialize();
+  event::mainLoop().addPollEvent(&WebConfigServer::processClient);
 
 } // end setup
 
@@ -101,24 +106,6 @@ void loop() {
 //
 // Function Definitions
 //
-
-/// Process all button presses.
-///
-// void processButtonPresses()
-// {
-//     switch (Buttons::getNextButtonPress()) {
-//     case Buttons::Up:
-//         buttonUpCounter += 1;
-//         break;
-//     case Buttons::OK:
-//         buttonEnterCounter += 1;
-//         break;
-//     case Buttons::Down:
-//         buttonDownCounter += 1;
-//     default:
-//         break;
-//     }
-// }
 
 void ledOnEvent(){
   digitalWrite(ledPin, HIGH);

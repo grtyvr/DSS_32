@@ -1,5 +1,6 @@
+#pragma once
 //
-// Network
+// WebConfig 
 // ---------------------------------------------------------------------------
 // (c)2021 by GRTYVR. See LICENSE for details.
 //
@@ -18,34 +19,27 @@
 // 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 //
 
-#include "Network.hpp"
+#include "ArduinoHeaders.hpp"
+#include "WebServer.h"
 
-const char *apssid = "DSC_AP";
-const char *appass = "";
-const int defaultChannel = 6;
+namespace WebConfigServer{
 
-namespace grt {
-namespace Network {
+void initialize();
 
-void initialize(){
-    // Set up networking
-    Serial.println("Setting up WiFi Access Point");
-    WiFi.mode(WIFI_AP);
-    WiFi.softAP(apssid, appass, defaultChannel);
-    Serial.print("AP IP Address: ");
-    Serial.println(WiFi.softAPIP());
+void processClient();
+
+void handle_led1On();
+
+void handle_led1Off();
+
+void handle_led2On();
+
+void handle_led2Off();
+
+void handle_OnConnect();
+
+void handle_NotFound();
+
+String SendHTML(uint8_t led1Status, uint8_t led2Status);
+
 }
-
-void printWiFiStatus(){
-  // print the SSID your are broadcasting
-  Serial.print("SSID: ");
-  Serial.println(WiFi.SSID());
-
-  // print your WiFi shield's IP address:
-  IPAddress ip = WiFi.localIP();
-  Serial.print("IP Address: ");
-  Serial.println(ip);
-}
-
-} // namespace Network
-} // namespace grt
