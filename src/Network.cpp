@@ -19,10 +19,11 @@
 //
 
 #include "Network.hpp"
+#include <esp_wifi.h>
 
 const char *apssid = "DSC_AP";
 const char *appass = "";
-const int defaultChannel = 6;
+const int defaultChannel = 10;
 
 namespace grt {
 namespace Network {
@@ -32,6 +33,7 @@ void initialize(){
     Serial.println("Setting up WiFi Access Point");
     WiFi.mode(WIFI_AP);
     WiFi.softAP(apssid, appass, defaultChannel);
+    esp_wifi_set_bandwidth(WIFI_IF_AP, WIFI_BW_HT20);
     Serial.print("AP IP Address: ");
     Serial.println(WiFi.softAPIP());
 }
