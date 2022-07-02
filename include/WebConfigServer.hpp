@@ -28,6 +28,8 @@ void initialize();
 
 void processClient();
 
+void handle_setChannel();
+
 void handle_led1On();
 
 void handle_led1Off();
@@ -40,6 +42,6 @@ void handle_OnConnect();
 
 void handle_NotFound();
 
-String SendHTML(uint8_t led1Status, uint8_t led2Status);
+String SendHTML(String channel, uint8_t led1Status, uint8_t led2Status);
 
 }

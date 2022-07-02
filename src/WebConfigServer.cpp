@@ -25,8 +25,11 @@
 namespace WebConfigServer {
 
 WebServer *configServer = NULL;
+String channel = "1";
+
 uint8_t LED1pin = 4;
 bool LED1status = LOW;
+
 
 uint8_t LED2pin = 5;
 bool LED2status = LOW;
@@ -36,10 +39,11 @@ void initialize(){
   configServer = new WebServer(portNumber);
   // register handlers
   configServer->on("/", handle_OnConnect);
-  configServer->on("/led1On", handle_led1On);
-  configServer->on("/led1Off", handle_led1Off);
-  configServer->on("/led2On", handle_led2On);
-  configServer->on("/led2Off", handle_led2Off);
+  configServer->on("/setChannel", handle_setChannel);
+  configServer->on("/led1on", handle_led1On);
+  configServer->on("/led1off", handle_led1Off);
+  configServer->on("/led2on", handle_led2On);
+  configServer->on("/led2off", handle_led2Off);
   configServer->onNotFound(handle_NotFound);
 
   configServer->begin();
@@ -51,36 +55,59 @@ void processClient(){
   configServer->handleClient();
 }
 
-void handle_SetChannel(int channnel){
-  Serial.println("Setting channel to: ");
+void handle_setChannel(){
+  String message = "URI: ";
+  message += configServer->uri();
+  message += "\nMethod: ";
+  message += (configServer->method() == HTTP_GET) ? "GET" : "POST";
+  message += "\nArguments: ";
+  message += configServer->args();
+  message += "\n";
+  for (uint8_t i =  0; i < configServer->args(); i++){
+    message += " " + configServer->argName(i) + ": " + configServer->arg(i) + "\n";
+  }
+  Serial.println(message);
+  channel = configServer->arg(0);
+  configServer->send(200, "text/html", SendHTML(channel, LED1status, LED2status));
 }
 
 void handle_led1On(){
   LED1status = HIGH;
   Serial.println("GPIO4 Status: ON");
-  configServer->send(200, "text/html", SendHTML(true,LED2status));
+  configServer->send(200, "text/html", SendHTML(channel, true,LED2status));
 }
 
 void handle_led1Off(){
   LED1status = LOW;
   Serial.println("GPIO4 Status: OFF");
-  configServer->send(200, "text/html", SendHTML(false,LED2status));
+  configServer->send(200, "text/html", SendHTML(channel, false,LED2status));
 }
 void handle_led2On(){
   LED2status = HIGH;
   Serial.println("GPIO5 Status: ON");
-  configServer->send(200, "text/html", SendHTML(LED1status,true));
+  configServer->send(200, "text/html", SendHTML(channel, LED1status,true));
 }
 void handle_led2Off(){
   LED2status = LOW;
   Serial.println("GPIO5 Status: OFF");
-  configServer->send(200, "text/html", SendHTML(LED1status,false));
+  configServer->send(200, "text/html", SendHTML(channel, LED1status,false));
 }
 
 void handle_OnConnect(){
   LED1status = LOW;
   LED2status = LOW;
-  configServer->send(200, "text/html", SendHTML(LED1status, LED2status));
+  String message = "URI: ";
+  message += configServer->uri();
+  message += "\nMethod: ";
+  message += (configServer->method() == HTTP_GET) ? "GET" : "POST";
+  message += "\nArguments: ";
+  message += configServer->args();
+  message += "\n";
+  for (uint8_t i =  0; i < configServer->args(); i++){
+    message += " " + configServer->argName(i) + ": " + configServer->arg(i) + "\n";
+  }
+  Serial.println(message);
+  configServer->send(200, "text/html", SendHTML(channel, LED1status, LED2status));
 }
 
 void handle_NotFound(){
@@ -91,13 +118,14 @@ void handle_NotFound(){
   message += (configServer->method() == HTTP_GET) ? "GET" : "POST";
   message += "\nArguments: ";
   message += configServer->args();
+  message += "\n";
   for (uint8_t i =  0; i < configServer->args(); i++){
     message += " " + configServer->argName(i) + ": " + configServer->arg(i) + "\n";
   }
   configServer->send(404, "text/plain", message);
 }
 
-String SendHTML(uint8_t led1Status, uint8_t led2Status){
+String SendHTML(String channel, uint8_t led1Status, uint8_t led2Status){
   String pageString = "<!DOCTYPE html> <html>\n";
   pageString += "<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, user-scalable=no\">\n";
   pageString += "<title>Configuration Page</title>\n";
@@ -106,7 +134,6 @@ String SendHTML(uint8_t led1Status, uint8_t led2Status){
   pageString += "<style>html { font-family: Helvetica; display: inline-block; margin: 0px auto; text-align: center;}";
   pageString += ".button { background-color: #4CAF50; border: none; color: white; padding: 16px 40px;";
   pageString += "body{margin-top: 50px;} h1 {color: #444444;margin: 50px auto 30px;} h3 {color: #444444;margin-bottom: 50px;}\n";
-  pageString += "p {font-size: 14px;color: #888;margin-bottom: 10px;}\n";
   pageString += ".button {display: block;width: 80px;background-color: #3498db;border: none;color: white;padding: 13px 30px;text-decoration: none;font-size: 25px;margin: 0px auto 35px;cursor: pointer;border-radius: 4px;}\n";
   pageString += ".button-on {background-color: #3498db;}\n";
   pageString += ".button-on:active {background-color: #2980b9;}\n";
@@ -117,21 +144,82 @@ String SendHTML(uint8_t led1Status, uint8_t led2Status){
   pageString += "</head>\n";
   pageString += "<body>\n";
   pageString +="<h1>ESP32 Digital Setting Circles Configuration</h1>\n";
-  pageString += "<form action=""/"" method=""POST"">";
+  pageString +="<p>Select the WiFi Channel.</p>\n";
+  pageString += "<form action=""/setChannel"" method=""POST"">";
   pageString +="<label for=""channel"">Select Channel:</label>";
   pageString +="<select id=""channel"" name=""channel"">";
-  pageString +="<option value=""1"">1</option>";
-  pageString +="<option value=""2"">2</option>";
-  pageString +="<option value=""3"">3</option>";
-  pageString +="<option value=""4"">4</option>";
-  pageString +="<option value=""5"">5</option>";
-  pageString +="<option value=""6"">6</option>";
-  pageString +="<option value=""7"">7</option>";
-  pageString +="<option value=""8"">8</option>";
-  pageString +="<option value=""9"">9</option>";
-  pageString +="<option value=""10"">10</option>";
-  pageString +="<option value=""11"">11</option>";
-  pageString +="<option value=""12"">13</option>";
+  pageString +="<option value=""1"" ";
+  if (channel == "1") {
+    pageString += "selected";
+  }
+  pageString += ">1</option>";
+  
+  pageString += "<option value=""2"" ";
+  if (channel == "2") {
+    pageString += "selected";
+  }
+  pageString += ">2</option>";
+  
+  pageString += "<option value=""3"" ";
+  if (channel == "3") {
+    pageString += "selected";
+  }
+  pageString += ">3</option>";
+  
+  pageString +="<option value=""4"" ";
+  if (channel == "4") {
+    pageString += "selected";
+  }
+  pageString += ">4</option>";
+  
+  pageString +="<option value=""5"" ";
+    if (channel == "5") {
+    pageString += "selected";
+  }
+  pageString += ">5</option>";
+
+  pageString +="<option value=""6"" ";
+    if (channel == "6") {
+    pageString += "selected";
+  }
+  pageString += ">6</option>";
+
+  pageString +="<option value=""7"" ";
+    if (channel == "7") {
+    pageString += "selected";
+  }
+  pageString += ">7</option>";
+
+  pageString +="<option value=""8"" ";
+  if (channel == "8") {
+    pageString += "selected";
+  }
+  pageString += ">8</option>";
+
+  pageString +="<option value=""9"" ";
+    if (channel == "9") {
+    pageString += "selected";
+  }
+  pageString += ">9</option>";
+
+  pageString +="<option value=""10"" ";
+  if (channel == "10") {
+    pageString += "selected";
+  }
+  pageString += ">10</option>";
+  
+  pageString +="<option value=""11"" ";
+  if (channel == "11") {
+    pageString += "selected";
+  }
+  pageString += ">11</option>";
+  
+  pageString +="<option value=""12"" ";
+  if (channel == "12") {
+    pageString += "selected";
+  }
+  pageString += ">12</option>";
+  
   pageString +="</select>";
   pageString +="<input type=""submit"" name=""Save Settings"">";
   pageString +="<form>\n";
