@@ -28,7 +28,10 @@ namespace grt {
 namespace Network {
 void initialize();
 
+void configure(IPAddress Ip, IPAddress Gw, IPAddress NetMask);
+
 void printWiFiStatus();
+
 
 }
 } 

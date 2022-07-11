@@ -21,9 +21,12 @@
 #include "Network.hpp"
 #include <esp_wifi.h>
 
-const char *apssid = "DSC_AP";
+const char *apssid = "DSC_ESP32_AP";
 const char *appass = "";
-const int defaultChannel = 10;
+const int WiFiChannel = 10;
+IPAddress Ip(192, 168, 4, 1);
+IPAddress Gw(192, 168, 4, 1);
+IPAddress NMask(255, 255, 255, 0);
 
 namespace grt {
 namespace Network {
@@ -32,10 +35,17 @@ void initialize(){
     // Set up networking
     Serial.println("Setting up WiFi Access Point");
     WiFi.mode(WIFI_AP);
-    WiFi.softAP(apssid, appass, defaultChannel);
+    WiFi.softAP(apssid, appass, WiFiChannel);
+    // wait 100ms for the AP_START
+    delay(100);
     esp_wifi_set_bandwidth(WIFI_IF_AP, WIFI_BW_HT20);
+    Network::configure(Ip, Gw, NMask);
     Serial.print("AP IP Address: ");
     Serial.println(WiFi.softAPIP());
+}
+
+void configure(IPAddress Ip, IPAddress Gw, IPAddress NetMask){
+  WiFi.softAPConfig(Ip, Gw, NetMask);
 }
 
 void printWiFiStatus(){

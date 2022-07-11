@@ -73,7 +73,12 @@ void update(){
   xPos = xOffset + totNumWidth - numWidth;
   u8g2->drawStr(xPos,37,tmp_string);
   u8g2->setFont(u8g2_font_profont12_mr);
-  u8g2->drawStr(3,61,"IP: 192.168.4.1");
+  IPAddress myIP = WiFi.softAPIP();
+  String ipAddr = myIP.toString();
+  char buf[ipAddr.length() + 1];
+  ipAddr.toCharArray(buf, ipAddr.length() + 1);
+  u8g2->drawStr(3,61,"IP: ");
+  u8g2->drawStr(25,61, buf);
   u8g2->sendBuffer();
 }
 
