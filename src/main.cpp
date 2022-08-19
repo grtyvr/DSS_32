@@ -76,6 +76,7 @@ void setup() {
   // start the network
   Network::initialize();
 
+  // start the Encoders
   Encoders::initialize();
 
   // start the angleServer and poll for clients
