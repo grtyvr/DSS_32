@@ -122,6 +122,7 @@ String SendHTML(String channel, String addr){
   pageString += "</head>\n";
   pageString += "<body>\n";
   pageString +="<h1>ESP32 Digital Setting Circles Configuration</h1>\n";
+  pageString +="<h2>Merope Clone</h2>\n";
   pageString +="<p>Select the WiFi Channel.</p>\n";
   pageString += "<form action=""/restartNetwork"" method=""POST"">";
   pageString +="<label for=""channel"">Channel:</label>";

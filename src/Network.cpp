@@ -21,11 +21,11 @@
 #include "Network.hpp"
 #include <esp_wifi.h>
 
-const char *apssid = "DSC_ESP32_AP";
+const char *apssid = "DSC_Merope_Clone";
 const char *appass = "";
 const int WiFiChannel = 10;
-IPAddress Ip(192, 168, 4, 1);
-IPAddress Gw(192, 168, 4, 1);
+IPAddress Ip(192, 168, 5, 1);
+IPAddress Gw(192, 168, 5, 1);
 IPAddress NMask(255, 255, 255, 0);
 
 namespace grt {
