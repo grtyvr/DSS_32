@@ -148,6 +148,11 @@ Position getMaxTics(){
 Position setMaxTics(Position pos){
   al_max_tics = pos.altitude;
   az_max_tics = pos.azimuth;
+  Preferences preferences;
+  preferences.begin("prefs", false);
+  preferences.putInt("alMaxTics", al_max_tics);
+  preferences.putInt("azMaxTics", az_max_tics);
+  preferences.end();
   Serial.println(al_A_pin);
   if (alEnc.enabled()){
     alEnc.end();

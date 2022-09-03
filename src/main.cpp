@@ -75,7 +75,7 @@ void setup() {
   if (storedAzMaxTics != az_max_tics){
     az_max_tics = storedAzMaxTics;
   }
-
+  preferences.end();
   // the humble status led
   pinMode(ledPin, OUTPUT);
   ledOnEvent();
@@ -92,7 +92,7 @@ void setup() {
   Network::initialize();
 
   // start the Encoders
-  Encoders::initialize(az_max_tics, al_max_tics);
+  Encoders::initialize(al_max_tics, az_max_tics);
 
   // start the angleServer and poll for clients
   AngleServer::initialize();
