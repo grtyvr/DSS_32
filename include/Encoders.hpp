@@ -44,5 +44,7 @@ Position getPosition();
 
 Position getMaxTics();
 
+Position setMaxTics(Position pos);
+
 }
 }

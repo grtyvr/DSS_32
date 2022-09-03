@@ -22,6 +22,7 @@
 #include "ArduinoHeaders.hpp"
 #include "WebServer.h"
 
+namespace grt{
 namespace WebConfigServer{
 
 void initialize();
@@ -34,6 +35,17 @@ void handle_NotFound();
 
 void handle_restartNetwork();
 
+void handle_configureEncoders();
+
 String SendHTML(String channel, String address);
 
+String getChannelOptionList(String channel);
+
+String getIPAddressOptionList(String addr);
+
+String getColorScheme();
+
+String getCSSSection();
+
+}
 }

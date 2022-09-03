@@ -22,6 +22,7 @@
 #include "NewEncoder.h"
 #include "AS5048.hpp"
 #include "Loop.hpp"
+#include "EEPROM.h"
 
 
 namespace grt {
@@ -138,6 +139,14 @@ Position getMaxTics(){
         az_max_tics
     };
     return maxTics;
+}
+
+Position setMaxTics(Position pos){
+    al_max_tics = pos.altitude;
+    az_max_tics = pos.azimuth;
+    Serial.println("maxAl: " + String(al_max_tics) + " maxAz: " + String(az_max_tics));
+    
+    return getMaxTics();
 }
 }
 }
