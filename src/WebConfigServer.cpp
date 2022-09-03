@@ -26,6 +26,7 @@
 //#include <string>
 
 
+
 namespace grt{
 namespace WebConfigServer {
 
@@ -181,7 +182,7 @@ String SendHTML(String channel, String addr){
   pgStr += "                <p>Note: After you press 'Save and Restart Network' you will have to reconnect";
   pgStr += "                          to the newtwork access point.  Also, if you have changed the IP Address that the Server";
   pgStr += "                           will use, you will have to use the new IP Address to access this page.";
-  pgStr += "                           Ensure that you have noted the new IP Address if you do change it.";
+  pgStr += "                           Ensure that you have noted the new IP Address if you do change it.</p>";
   pgStr += "                <div class=\"buttonHolder\">";
   pgStr += "                  <input type=\"submit\" value=\"Save Settings and Restart Network\">";
   pgStr += "                </div>";
@@ -203,6 +204,8 @@ String SendHTML(String channel, String addr){
   pgStr += "                <input type=\"text\" id=\"maxAlTics\" name=\"maxAlTics\" value=\" ";
   pgStr +=                    maxAl;
   pgStr += "                \"><br>";
+  pgStr += "                <p>Note: After you press 'Save Encoder Settings' the encoders will be reset using current position";
+  pgStr += "                   as the new zero position.  This will break any alignment you have done in Sky Safari.</p>";
   pgStr += "                <div class=\"buttonHolder\">";
   pgStr += "                  <input type=\"submit\" value=\"Save Encoder Settings\">";
   pgStr += "                </div>";
