@@ -22,8 +22,7 @@
 #include "NewEncoder.h"
 #include "AS5048.hpp"
 #include "Loop.hpp"
-#include "EEPROM.h"
-
+#include "Preferences.h"
 
 namespace grt {
 namespace Encoders{
@@ -60,7 +59,7 @@ void ESP_ISR CustomEncoder::updateValue(uint8_t updatedState) {
   stateChanged = true;
 }
 
-//float smoothingFactor = 0.1;
+
 int al_A_pin = 23;
 int al_B_pin = 19;
 int al_min_val = 0;
@@ -77,15 +76,17 @@ CustomEncoder azEnc(az_A_pin, az_B_pin, az_min_val, az_max_tics, az_start_val, F
 
 int16_t prevAlValue;
 int16_t prevAzValue;
-
 //
 ///////////////////////////////////////////////////////////////////////////////
 
 /// Initialise this module
 ///
-void initialize(){
-CustomEncoder::EncoderState AlState;
-CustomEncoder::EncoderState AzState;
+void initialize(int al_max_tics, int az_max_tics){
+  CustomEncoder::EncoderState AlState;
+  CustomEncoder::EncoderState AzState;
+
+  alEnc.configure(al_A_pin, al_B_pin, al_min_val, al_max_tics, al_start_val, FULL_PULSE);
+  azEnc.configure(az_A_pin, az_B_pin, az_min_val, az_max_tics, az_start_val, FULL_PULSE);
 
   delay(2000);
   Serial.println("Starting");
@@ -112,6 +113,9 @@ CustomEncoder::EncoderState AzState;
     prevAzValue = AzState.currentValue;
     Serial.println(prevAlValue);
   }
+
+
+
 }
 
 /// Get the encoder readings.
@@ -142,11 +146,30 @@ Position getMaxTics(){
 }
 
 Position setMaxTics(Position pos){
-    al_max_tics = pos.altitude;
-    az_max_tics = pos.azimuth;
-    Serial.println("maxAl: " + String(al_max_tics) + " maxAz: " + String(az_max_tics));
-    
-    return getMaxTics();
+  al_max_tics = pos.altitude;
+  az_max_tics = pos.azimuth;
+  Serial.println(al_A_pin);
+  if (alEnc.enabled()){
+    alEnc.end();
+    alEnc.configure(al_A_pin, al_B_pin, al_min_val, al_max_tics, al_start_val, FULL_PULSE);
+    if (!alEnc.begin()) {
+      Serial.println("Altitude Encoder Failed to Start. Check pin assignments and available interrupts. Aborting.");
+      while (1) {
+        yield();
+      }
+    }
+  }
+  if (azEnc.enabled()){
+    azEnc.end();
+    azEnc.configure(az_A_pin, az_B_pin, az_min_val, az_max_tics, az_start_val, FULL_PULSE);
+    if (!azEnc.begin()) {
+      Serial.println("Azimuth Encoder Failed to Start. Check pin assignments and available interrupts. Aborting.");
+      while (1) {
+        yield();
+      }
+    }
+  }
+  return getMaxTics();
 }
 }
 }

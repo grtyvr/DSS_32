@@ -36,7 +36,7 @@ struct Position{
 
 /// Initialise this module
 ///
-void initialize();
+void initialize(int al_max_tics, int az_max_tics);
 
 /// Get the next button press.
 ///

@@ -23,7 +23,8 @@
 #include "WiFi.h"
 #include "Network.hpp"
 #include "Encoders.hpp"
-#include <string>
+//#include <string>
+
 
 namespace grt{
 namespace WebConfigServer {
@@ -134,8 +135,9 @@ void handle_NotFound(){
   message += configServer->args();
   message += "\n";
   for (uint8_t i =  0; i < configServer->args(); i++){
-    message += " " + configServer->argName(i) + ": " + configServer->arg(i) + "\n";
+    message += " " + configServer->argName(i) + ": " + configServer->arg(i) + "\n"; 
   }
+  Serial.println(message);
   configServer->send(404, "text/plain", message);
 }
 
@@ -143,10 +145,6 @@ String SendHTML(String channel, String addr){
   Encoders::Position curMaxTics = Encoders::getMaxTics();
   String maxAz = String(curMaxTics.azimuth);
   String maxAl = String(curMaxTics.altitude);
-  Serial.print("Max Az: ");
-  Serial.print(maxAz);
-  Serial.print(" Max Az: ");
-  Serial.println(maxAl);
   String pgStr = "";
   pgStr += "<!DOCTYPE html>";
   pgStr += "  <html lang=\"en\">";
@@ -155,7 +153,7 @@ String SendHTML(String channel, String addr){
   pgStr += "      <title>DSC Configuration</title>";
   pgStr += "      <style>";
   pgStr += getCSSSection();
-  pgStr += "      </style>"; 
+  pgStr += "      </style>";
   pgStr += "    </head>";
 
   pgStr += "    <body>";
@@ -226,7 +224,7 @@ String getChannelOptionList(String channel){
       pgStr += "selected";
   }
   pgStr += ">1</option>";
-    
+
   pgStr += "<option value=\"2\" ";
   if (channel == "2") {
     pgStr += "selected";

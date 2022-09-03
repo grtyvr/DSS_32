@@ -16,9 +16,12 @@ Version 0.3 - "Tidy is better"
 #include "AngleServer.hpp"
 #include "Application.hpp"
 #include "WebConfigServer.hpp"
+#include "Preferences.h"
 
 using namespace lr;
 using namespace grt;
+
+Preferences preferences;
 
 /// The Event Loop
 ///
@@ -28,6 +31,8 @@ event::BasicLoop<event::StaticStorage<16>> gEventLoop;
 //#define DEBUGGING
 
 const int ledPin = 27;  // Status led
+int al_max_tics = 9544;
+int az_max_tics = 5216;
 
 ///////////////////////////////////////////////////////////////////////////////
 //
@@ -61,6 +66,16 @@ void setup() {
   Serial.begin(115200);
   delay(1500);
 
+  preferences.begin("prefs", false);
+  int storedAlMaxTics = preferences.getInt("alMaxTics", al_max_tics);
+  int storedAzMaxTics = preferences.getInt("azMaxTics", az_max_tics);
+  if (storedAlMaxTics != al_max_tics) {
+    al_max_tics = storedAlMaxTics;
+  }
+  if (storedAzMaxTics != az_max_tics){
+    az_max_tics = storedAzMaxTics;
+  }
+
   // the humble status led
   pinMode(ledPin, OUTPUT);
   ledOnEvent();
@@ -77,7 +92,7 @@ void setup() {
   Network::initialize();
 
   // start the Encoders
-  Encoders::initialize();
+  Encoders::initialize(az_max_tics, al_max_tics);
 
   // start the angleServer and poll for clients
   AngleServer::initialize();
