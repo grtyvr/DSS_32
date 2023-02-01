@@ -60,7 +60,7 @@ void ESP_ISR CustomEncoder::updateValue(uint8_t updatedState) {
 }
 
 
-int al_A_pin = 23;
+int al_A_pin = 34;
 int al_B_pin = 19;
 int al_min_val = 0;
 int al_max_tics = 9544;
