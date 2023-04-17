@@ -28,8 +28,8 @@ namespace grt {
 namespace Encoders{
 
 float smoothingFactor = 0.1;
-int alPin = 5;
-int azPin = 32;
+int alPin = 25;
+int azPin = 4;
 
 // pointer to store the SPI bus we will use
 SPIClass *vspi = NULL;

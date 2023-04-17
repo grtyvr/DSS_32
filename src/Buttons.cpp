@@ -34,7 +34,7 @@ const uint8_t cButtonCount = 3;
 /// The pin numbers where the buttons are attached.
 ///
 // const uint8_t cButtonPins[cButtonCount] = {17, 16, 4};
-const uint8_t cButtonPins[cButtonCount] = {17, 16, 4};
+const uint8_t cButtonPins[cButtonCount] = {15, 33, 27};
 
 /// Initial delay.
 ///
