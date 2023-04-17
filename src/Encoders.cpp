@@ -34,8 +34,8 @@ int azPin = 4;
 // pointer to store the SPI bus we will use
 SPIClass *vspi = NULL;
 
-AS5048A alEnc(alPin, 3);
-AS5048A azEnc(azPin, 3);
+AS5048A alEnc(alPin);
+AS5048A azEnc(azPin);
 //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -56,8 +56,8 @@ void initialize(){
 Position getPosition(){
     int numReadings = 1000;
     Position curPos = {
-        alEnc.getMeanAngle(numReadings),
-        azEnc.getMeanAngle(numReadings)
+        alEnc.getTics(),
+        azEnc.getTics()
     };
     return curPos;
 }
