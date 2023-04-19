@@ -21,6 +21,8 @@ Version 0.3 - "Tidy is better"
 using namespace lr;
 using namespace grt;
 
+
+
 Preferences preferences;
 
 /// The Event Loop
@@ -92,7 +94,8 @@ void setup() {
   Network::initialize();
 
   // start the Encoders
-  Encoders::initialize(al_max_tics, az_max_tics);
+  Encoders::initialize();
+  event::mainLoop().addRepeatedEvent(&Encoders::update,10_ms);
 
   // start the angleServer and poll for clients
   AngleServer::initialize();
