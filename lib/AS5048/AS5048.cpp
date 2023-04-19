@@ -20,35 +20,19 @@
 
 #include <Arduino.h>
 #include "Angle.hpp"
-
 #include "AS5048.hpp"
 
-// #define AS5048A_DEBUG
+//#define AS5048A_DEBUG
 
-// AS5048A SPI Register Map
-const uint16_t AS5048_CMD_NOP = 0x0;      // no operation, dummy information.  Use this to get result of last command
-const uint16_t AS5048_REG_ERR = 0x1;      // Error Register.  To clear the register, access it.
-                                          // bit 0, framing error, bit 1 Command invalid, bit 2 Parity Error.
-const uint16_t AS5048_PRM_CTL = 0x3;      // Programming control register.  Must enable before burning fuses.  Always 
-                                          // verify after programing. bit 0: program enable - bit 3: burn -- bit 6: verify
-const uint16_t AS5048_OTP_0_HIGH = 0x16;  // Zero position high byte: bits 0..7  top 6 bits not used.
-const uint16_t AS5048_OTP_0_LOW = 0x17;   // Zero position lower 6 Least Significant Bits: bits 0..5, Top 8 bits not used.
-const uint16_t AS5048_REG_AGC = 0x3FFD;   // Diagnostic and Automatic Gain Control
-                                          // Bits 0..7 AGC value 0=high, 255=low - Bit 8: OCF - Bit 9: COF - Bits 10..11 Comp Low..High
-const uint16_t AS5048_REG_MAG = 0x3FFE;   // Magnitude after ATAN calculation bits 0..13
-const uint16_t AS5048_REG_ANGLE = 0x3FFF; // Angle after ATAN calculation and zero position correction if used - bits 0..13
-
-const uint16_t AS5048_READ_CMD = 0x4000;  // bit 15 = 1 for read operation.
-
-const uint16_t AS5048_CLEAR_ERR = 0x1;    // Clear error flag
-
-AS5048A::AS5048A(uint8_t arg_cs, uint8_t nullZone){
+AS5048A::AS5048A(uint8_t cs){
   _settings = SPISettings(1000000, MSBFIRST, SPI_MODE1);
-  _cs = arg_cs;
-  _nullZone = nullZone;
+  _cs = cs;
   pinMode(_cs, OUTPUT);
   _errorFlag = false;
-  _angle = 0.0;                           // initialize to zero degrees
+}
+
+void AS5048A::init(SPIClass* spi){
+  _spi = spi;
 }
 
 void AS5048A::setSPIBus(SPIClass* spi){
@@ -65,107 +49,24 @@ uint16_t AS5048A::getMagnitude(){
   return rawData &= 0x3FFF;
 }
 
-uint16_t AS5048A::getAngle(){
-  uint16_t rawData = read(AS5048_REG_ANGLE);
+void AS5048A::update(){
+  _curTics = read(AS5048_REG_ANGLE);
   // the bottom 14 bits are the angle
-  #ifdef AS5048A_DEBUG
-    rawData &= 0x3FFF;
-    Serial.print(" null zone: ");
-    Serial.print(_nullZone);
-    Serial.print(" ");
-    Serial.print(" old angle: ");
-    Serial.print(_angle);
-    Serial.print(" ");
-  #endif
-  if (abs(rawData - _angle) > _nullZone){
-    _angle = rawData; 
-    return rawData &= 0x3FFF;
-  } else {
-    return _angle;
-  }
+  _curTics &= 0x3FFF;
+  // apply filter to the raw data
+  _curTics = updateKalmanEstimate(_curTics);
+
+//  #ifdef AS5048A_DEBUG
+//    Serial.print(" old value: ");
+//    Serial.println(_curTics);
+//    Serial.print(" ");
+//  #endif
 }
 
-///////////////////////////////////////////////////////////////////////////////
-//
-// http://damienclarke.me/code/posts/writing-a-better-noise-reducing-analogread
-//
-///////////////////////////////////////////////////////////////////////////////
-//
-// return the exponentially smoothed value paying close attention to
-// how we need to wrap the smoothing out around the transition from
-// 2^14 back to 0
-//
-//
-uint16_t AS5048A::getExpSmoothAngle(float smoothingFactor){
-  /// use exponential smoothing to return the new reading
-  /// since we might be crossing from 2^14 back to 0 we need to take care about normalizing our readings
-  uint16_t newAngle = read(AS5048_REG_ANGLE);
-  // the bottom 14 bits are the angle
-   newAngle &= 0x3FFF;
-  // make sure we have not wrapped around
-  // we do that by making sure that our old value is not more than half
-  // of the total range away from the new value
-  // For example:
-  //    1 ---> 16383 is just 3 tic
-  //  We want to do something reasonable with that sort of thing
-  //
-  if (_angle - newAngle > 8192){
-    // we have wrapped from High to LOW
-    // so move the new value out past the high end
-    // calculate what the smoothed value would be as if the range was wider
-    // and if that new value would move us out of range, then return
-    // the wrapped value
-    newAngle += 16384;
-    _angle = (_angle * (1 - smoothingFactor)) + (newAngle * smoothingFactor);
-
-  } else if (newAngle - _angle > 8192){
-    // here we have wrapped from Low to High
-    // so move the new value to the low end ( may be negative but it still works)
-    // calculate what the smoothed value would be as if the range was wider
-    // and if that new value would move us out of range, then return
-    // the wrapped value
-    newAngle -= 16384;
-    _angle = (_angle * (1 - smoothingFactor)) + (newAngle * smoothingFactor);
-    // this could be negative.  If it is we have to wrap back to the top....
-    if (_angle < 0){
-      _angle += 16384;
-    }
-  } else {
-    _angle = (_angle * (1 - smoothingFactor)) + (newAngle * smoothingFactor);
-  }
-  return  ((uint16_t) round(_angle)) % 16384;
-}
-
-uint16_t AS5048A::getMeanAngle(int numSamples){
-  uint16_t retVal;
-  float meanX = 0.0;
-  float meanY = 0.0;
-  Angle sample;
-  /// take a number of samples and return the circular mean value
-  /// since we might have a situation where we are sampling at the transition from
-  /// 2^14 - n to m for small integer n and small integer m, have to be carefull to normalize our data
-  for (int i=0; i < numSamples; i++){
-    // take a sample and compute the x and y coordinate of the sample as if it on the unit circle
-    sample.setTics(read(AS5048_REG_ANGLE));
-    meanX += sample.x();
-    meanY += sample.y();
-  }
-  // Take the average X and average Y values
-  meanX = meanX/numSamples;
-  meanY = meanY/numSamples;
-  if ( (meanX == 0.0) & (meanY == 0.0) ){
-    // pathalogical case of both X and Y being equal to zero as floats!
-    retVal = 0;
-  } else {
-    Angle angle(atan2(meanY, meanX));
-    if (abs(_angle - angle.getTics()) > _nullZone){
-      retVal = angle.getTics();
-    } else {
-      retVal = _angle;
-    }
-    _angle = angle.getTics();
-  }
-  return retVal; 
+uint16_t AS5048A::getTics(){
+  Serial.print(" new value: ");
+  Serial.println(_curTics);
+  return _curTics;
 }
 
 uint16_t AS5048A::getMaxTics(){
@@ -198,6 +99,53 @@ uint16_t AS5048A::getDiag(){
 uint8_t AS5048A::getGain(){
   // the gain is in the bottom 8 bits
   return read(AS5048_REG_AGC) & 0xFF;
+}
+
+uint16_t AS5048A::updateKalmanEstimate(uint16_t mea) {
+  _gain = _err_est/(_err_est + _err_meas);
+  /* We have to be carefull of overflow and underflow... 
+    * cases to treat:
+   * last_estimate + _kalman_gain(mea - _last_estimate) > max
+   * last_estimate + _kalman_gain(mea - _last_estimate) < 0
+   * and we have to round the estimate to an uint16_t 
+   */
+  uint16_t _curr_est = round(_last_est + _gain * (mea - _last_est));
+  if ( _curr_est > _maxTics ) {
+    _curr_est = _curr_est - _maxTics;
+  } else if (_curr_est < 0 ) {
+    _curr_est = _maxTics + _curr_est;
+  }
+  /* cases to treat:
+   * We have to be carefull at the crossover from near max values and min values.
+   * When |last_estimate - _current_estimate | is large ( bigger than half max say ) 
+   * we have values that cross the zero point and we need to be a bit careful in 
+   * calculating the difference between the reading and the estimate.  
+  */
+  uint16_t cur_delta = _last_est - _curr_est;
+  // if you have a large negative value then the curr_est is large and last is small
+  if (cur_delta < (-1 * _maxTics/2) ){
+    cur_delta = cur_delta + _maxTics;
+    // if you have a large positive value then cur_est is small and last is large
+  } else if ( cur_delta > (_maxTics / 2)) {
+    cur_delta = _maxTics - cur_delta;
+  } else {
+    // otherwise just use the absolute value of the difference since it is small
+    // the cur_est and last are close numericaly.
+    cur_delta = abs(cur_delta);
+  }
+  // update the estimated error and the current estimated value
+  _err_est =  (1.0 - _gain)*_err_est + cur_delta*_q;
+  _last_est =_curr_est;
+
+  return _curr_est;
+}
+
+float AS5048A::getKalmanGain() {
+  return _gain;
+}
+
+float AS5048A::getEstimateError() {
+  return _err_est;
 }
 
 uint16_t AS5048A::read(uint16_t REGISTER){

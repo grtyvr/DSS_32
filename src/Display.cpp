@@ -32,7 +32,7 @@ U8G2_SSD1306_128X64_NONAME_F_HW_I2C *u8g2;
 // Initialize the display
 // 
 void initialize(){
-    u8g2 = new U8G2_SSD1306_128X64_NONAME_F_HW_I2C(U8G2_R2);
+    u8g2 = new U8G2_SSD1306_128X64_NONAME_F_HW_I2C(U8G2_R0);
     u8g2->begin();
 }
 
@@ -57,21 +57,21 @@ void update(){
 
   char tmp_string[12];
   u8g2->clearBuffer();
-  u8g2->drawFrame(0,0,128,42);
+  u8g2->drawFrame(0,2,128,44);
   u8g2->setFont(u8g2_font_profont17_mr);
   u8g2->setDrawColor(1);
-  u8g2->drawStr(3,17, "Al: ");
-  u8g2->drawStr(3,37, "Az: ");
+  u8g2->drawStr(3,19, "Al: ");
+  u8g2->drawStr(3,39, "Az: ");
   uint8_t totNumWidth = u8g2->getStrWidth("00000");
   uint8_t xOffset = 125 - totNumWidth;
   itoa(alAng, tmp_string, 10);
   uint8_t numWidth = u8g2->getStrWidth(tmp_string);
   uint8_t xPos = xOffset + totNumWidth - numWidth;
-  u8g2->drawStr(xPos,17,tmp_string);
+  u8g2->drawStr(xPos,19,tmp_string);
   itoa(azAng, tmp_string, 10);
   numWidth = u8g2->getStrWidth(tmp_string);
   xPos = xOffset + totNumWidth - numWidth;
-  u8g2->drawStr(xPos,37,tmp_string);
+  u8g2->drawStr(xPos,39,tmp_string);
   u8g2->setFont(u8g2_font_profont12_mr);
   IPAddress myIP = WiFi.softAPIP();
   String ipAddr = myIP.toString();

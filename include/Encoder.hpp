@@ -1,8 +1,8 @@
 #pragma once
 //
-// Encoders
+// Encoder
 // ---------------------------------------------------------------------------
-// (c)2021 by GRTYVR. See LICENSE for details.
+// (c)2023 by GRTYVR. See LICENSE for details.
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -19,35 +19,15 @@
 // 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 //
 
-
 #include "ArduinoHeaders.hpp"
 
+// Abstract interface for an Encoder object.
+//    
 
 namespace grt {
-namespace Encoders{
-
-/// The Encoder Values.
-///
-struct Position{
-    int altitude;
-    int azimuth;
+class Encoder {
+    public:
+        virtual uint16_t getTics() = 0;
+        virtual uint16_t getMaxTics() = 0;
 };
-
-
-/// Initialise this module
-///
-void initialize();
-
-/// Update the encoders.
-void update();
-
-/// Get the current position.
-///
-Position getPosition();
-
-Position getMaxTics();
-
-void setMaxTics(Position maxTics);
-
-}
 }
