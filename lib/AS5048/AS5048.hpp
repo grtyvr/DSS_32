@@ -40,12 +40,19 @@ const uint16_t AS5048_CLEAR_ERR = 0x1;    // Clear error flag
 
 class AS5048A{
     private:
+        uint16_t _curTics = 0;
         SPISettings _settings = SPISettings(1000000, MSBFIRST, SPI_MODE1);
         SPIClass* _spi;
         bool _errorFlag;
         uint8_t _errorValue;
         uint8_t _cs;
         uint16_t _maxTics = 16384;
+        float _err_meas = 3.0;
+        float _err_est = 9.0;
+        float _q = 0.01;
+        float _curr_est = 0;
+        float _last_est = 0;
+        float _gain = 0;
 
     public:
         /**
@@ -79,12 +86,21 @@ class AS5048A{
         uint16_t getMagnitude();
         
         /**
-         * getAngle
+         * 
+         * @brief Update the current value.
+         * 
+         * This is intended to be called from an update loop.  It will get a new reading
+         * from the AS5048A, close the SPI bus and optionally apply a filter to the result
+         */
+        void update();
+        
+        /**
+         * getTics
          * @return {uint16_t} angle as a value in the interval [0,2^14-1].  Rotation counter clockwise 
          * from the current zero position
          */
         uint16_t getTics();
-        
+
         /**
          * printDiagnostics
          * Print diagnostic information to the serial port 
@@ -105,9 +121,12 @@ class AS5048A{
         uint16_t getMaxTics();
 
     private:
+        float getKalmanGain();
+        float getEstimateError();
         uint16_t getDiag();
         uint8_t calcEvenParity(uint16_t value);
         uint16_t read(uint16_t registerAddress);
         // TODO: Implement the write command.  Part of the configure version?
         uint16_t write(uint16_t registerAddress, uint16_t data);
+        uint16_t updateKalmanEstimate(uint16_t newVal);
 };

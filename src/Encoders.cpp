@@ -23,7 +23,6 @@
 #include "AS5048.hpp"
 #include "Loop.hpp"
 
-
 namespace grt {
 namespace Encoders{
 
@@ -36,6 +35,7 @@ SPIClass *vspi = NULL;
 
 AS5048A alEnc(alPin);
 AS5048A azEnc(azPin);
+
 //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -49,12 +49,18 @@ void initialize(){
   vspi->begin();
   alEnc.setSPIBus(vspi);
   azEnc.setSPIBus(vspi);
+  Serial.print("created new encoder objects.");
+}
+
+/// @brief  Update the encoders
+void update(){
+    alEnc.update();
+    azEnc.update();
 }
 
 /// Get the encoder readings.
 ///
 Position getPosition(){
-    int numReadings = 1000;
     Position curPos = {
         alEnc.getTics(),
         azEnc.getTics()

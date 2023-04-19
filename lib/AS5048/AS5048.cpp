@@ -22,7 +22,7 @@
 #include "Angle.hpp"
 #include "AS5048.hpp"
 
-// #define AS5048A_DEBUG
+//#define AS5048A_DEBUG
 
 AS5048A::AS5048A(uint8_t cs){
   _settings = SPISettings(1000000, MSBFIRST, SPI_MODE1);
@@ -49,20 +49,24 @@ uint16_t AS5048A::getMagnitude(){
   return rawData &= 0x3FFF;
 }
 
-uint16_t AS5048A::getTics(){
-  uint16_t rawData = read(AS5048_REG_ANGLE);
+void AS5048A::update(){
+  _curTics = read(AS5048_REG_ANGLE);
   // the bottom 14 bits are the angle
-  #ifdef AS5048A_DEBUG
-    rawData &= 0x3FFF;
-    Serial.print(" null zone: ");
-    Serial.print(_nullZone);
-    Serial.print(" ");
-    Serial.print(" old angle: ");
-    Serial.print(_angle);
-    Serial.print(" ");
-  #endif
+  _curTics &= 0x3FFF;
+  // apply filter to the raw data
+  _curTics = updateKalmanEstimate(_curTics);
 
-  return rawData &= 0x3FFF;
+//  #ifdef AS5048A_DEBUG
+//    Serial.print(" old value: ");
+//    Serial.println(_curTics);
+//    Serial.print(" ");
+//  #endif
+}
+
+uint16_t AS5048A::getTics(){
+  Serial.print(" new value: ");
+  Serial.println(_curTics);
+  return _curTics;
 }
 
 uint16_t AS5048A::getMaxTics(){
@@ -95,6 +99,52 @@ uint16_t AS5048A::getDiag(){
 uint8_t AS5048A::getGain(){
   // the gain is in the bottom 8 bits
   return read(AS5048_REG_AGC) & 0xFF;
+}
+
+uint16_t AS5048A::updateKalmanEstimate(uint16_t mea) {
+  _gain = _err_est/(_err_est + _err_meas);
+  /* We have to be carefull of overflow and underflow... 
+    * cases to treat:
+   * last_estimate + _kalman_gain(mea - _last_estimate) > max
+   * last_estimate + _kalman_gain(mea - _last_estimate) < 0
+   * and we have to round the estimate to an uint16_t 
+   */
+  uint16_t _curr_est = round(_last_est + _gain * (mea - _last_est));
+  if ( _curr_est > _maxTics ) {
+    _curr_est = _curr_est - _maxTics;
+  } else if (_curr_est < 0 ) {
+    _curr_est = _maxTics + _curr_est;
+  }
+  /* cases to treat:
+   * We have to be carefull at the crossover from near max values and min values.
+   * When |last_estimate - _current_estimate | is large ( bigger than half max say ) 
+   * we have values that cross the zero point and we need to be a bit careful in 
+   * calculating the difference between the reading and the estimate.  
+  */
+  uint16_t cur_delta = _last_est - _curr_est;
+  // if you have a large negative value then the curr_est is large and last is small
+  if (cur_delta < (-1 * _maxTics/2) ){
+    cur_delta = cur_delta + _maxTics;
+    // if you have a large positive value then cur_est is small and last is large
+  } else if ( cur_delta > (_maxTics / 2)) {
+    cur_delta = _maxTics - cur_delta;
+  } else {
+    // otherwise just use the absolute value of the difference since it is small
+    // the cur_est and last are close numericaly.
+    cur_delta = abs(cur_delta);
+  }
+  _err_est =  (1.0 - _gain)*_err_est + cur_delta*_q;
+  _last_est =_curr_est;
+
+  return _curr_est;
+}
+
+float AS5048A::getKalmanGain() {
+  return _gain;
+}
+
+float AS5048A::getEstimateError() {
+  return _err_est;
 }
 
 uint16_t AS5048A::read(uint16_t REGISTER){

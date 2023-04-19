@@ -19,6 +19,8 @@ Version 0.3 - "Tidy is better"
 using namespace lr;
 using namespace grt;
 
+
+
 /// The Event Loop
 ///
 event::BasicLoop<event::StaticStorage<16>> gEventLoop;
@@ -76,6 +78,7 @@ void setup() {
   Network::initialize();
 
   Encoders::initialize();
+  event::mainLoop().addRepeatedEvent(&Encoders::update,10_ms);
 
   // start the angleServer
   AngleServer::initialize();

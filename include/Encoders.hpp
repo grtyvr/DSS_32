@@ -38,7 +38,10 @@ struct Position{
 ///
 void initialize();
 
-/// Get the next button press.
+/// Update the encoders.
+void update();
+
+/// Get the current position.
 ///
 Position getPosition();
 
