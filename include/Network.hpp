@@ -26,7 +26,7 @@ extern WiFiServer *server;
 
 namespace grt {
 namespace Network {
-void initialize();
+void initialize(const char* appssid);
 
 void configure(IPAddress Ip, IPAddress Gw, IPAddress NetMask);
 

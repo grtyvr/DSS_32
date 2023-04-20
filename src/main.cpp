@@ -21,8 +21,6 @@ Version 0.3 - "Tidy is better"
 using namespace lr;
 using namespace grt;
 
-
-
 Preferences preferences;
 
 /// The Event Loop
@@ -32,6 +30,7 @@ event::BasicLoop<event::StaticStorage<16>> gEventLoop;
 // uncomment the next line to turn on debugging
 //#define DEBUGGING
 
+const char *apssid = "DSC_Circus_Cannon";
 const int ledPin = 27;  // Status led
 int al_max_tics = 9544;
 int az_max_tics = 5216;
@@ -91,7 +90,7 @@ void setup() {
   event::mainLoop().addRepeatedEvent(&Display::update,60_ms); // about 16 FPS
 
   // start the network
-  Network::initialize();
+  Network::initialize(apssid);
 
   // start the Encoders
   Encoders::initialize();

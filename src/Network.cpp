@@ -21,7 +21,6 @@
 #include "Network.hpp"
 #include <esp_wifi.h>
 
-const char *apssid = "DSC_Merope_Clone";
 const char *appass = "";
 const int WiFiChannel = 10;
 IPAddress Ip(192, 168, 4, 1);
@@ -31,7 +30,7 @@ IPAddress NMask(255, 255, 255, 0);
 namespace grt {
 namespace Network {
 
-void initialize(){
+void initialize(const char* apssid){
     // Set up networking
     Serial.println("Setting up WiFi Access Point");
     WiFi.mode(WIFI_AP);
