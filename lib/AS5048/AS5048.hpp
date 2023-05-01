@@ -53,6 +53,7 @@ class AS5048A{
         float _curr_est = 0;
         float _last_est = 0;
         float _gain = 0;
+        float _expSmoothFactor = 0.1;  // weight new values by 10%
 
     public:
         /**
@@ -122,6 +123,7 @@ class AS5048A{
     private:
         float getKalmanGain();
         float getEstimateError();
+        uint16_t updateExponentialEstimate(uint16_t curTics);
         uint16_t getDiag();
         uint8_t calcEvenParity(uint16_t value);
         uint16_t read(uint16_t registerAddress);

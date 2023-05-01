@@ -54,7 +54,8 @@ void AS5048A::update(){
   // the bottom 14 bits are the angle
   _curTics &= 0x3FFF;
   // apply filter to the raw data
-  _curTics = updateKalmanEstimate(_curTics);
+//  _curTics = updateKalmanEstimate(_curTics);
+  _curTics = updateExponentialEstimate(_curTics);
 
 //  #ifdef AS5048A_DEBUG
 //    Serial.print(" old value: ");
@@ -146,6 +147,43 @@ float AS5048A::getKalmanGain() {
 
 float AS5048A::getEstimateError() {
   return _err_est;
+}
+
+uint16_t AS5048A::updateExponentialEstimate(uint16_t newTics){
+  /// use exponential smoothing to return the new reading
+  /// since we might be crossing from 2^14 back to 0 we need to take care about sanitizing
+  // our readings to make sure we have not wrapped around
+  // One heuristic method is by making sure that our old value is not more than half
+  // of the total range away from the new value
+  // For example:
+  //    1 ---> 16383 is just 3 tic
+  //  We want to do something reasonable with that sort of thing
+  //
+  if (_curr_est - newTics > 8192){
+    // we have wrapped from High to LOW
+    // so move the new value out past the high end
+    // calculate what the smoothed value would be as if the range was wider
+    // and if that new value would move us out of range, then return
+    // the wrapped value
+    newTics += 16384;
+    _curr_est = (_curr_est * (1 - _expSmoothFactor)) + (newTics * _expSmoothFactor);
+
+  } else if (newTics - _curr_est > 8192){
+    // here we have wrapped from Low to High
+    // so move the new value to the low end ( may be negative but it still works)
+    // calculate what the smoothed value would be as if the range was wider
+    // and if that new value would move us out of range, then return
+    // the wrapped value
+    newTics -= 16384;
+    _curr_est = (_curr_est * (1 - _expSmoothFactor)) + (newTics * _expSmoothFactor);
+    // this could be negative.  If it is we have to wrap back to the top....
+    if (_curr_est < 0){
+      _curr_est += 16384;
+    }
+  } else {
+    _curr_est = (_curr_est * (1 - _expSmoothFactor)) + (newTics * _expSmoothFactor);
+  }
+  return  ((uint16_t) round(_curr_est)) % 16384;
 }
 
 uint16_t AS5048A::read(uint16_t REGISTER){
