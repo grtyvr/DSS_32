@@ -50,14 +50,14 @@ class AS5048A{
         uint8_t _errorValue;
         uint8_t _cs;
         uint16_t _maxTics = 16384;
-        float _err_meas = 3.0;
-        float _err_est = 9.0;
-        float _q = 0.01;
+        float _r = 1.6;     // measurement noise variance
+        float _cur_err = 3.0;     // initial variance
+        float _pred_err;
+        float _q = 0.01;    // process noise variance
         float _curr_est = 0;
         float _last_est = 0;
-        float _gain = 0;
+        float _gain;
         float _expSmoothFactor = 0.025; // weight new values by 2.5%
-        uint8_t _maxTries = 5;
 
     public:
         /**
@@ -128,9 +128,8 @@ class AS5048A{
 
     private:
 
-        float getKalmanGain();
-        float getEstimateError();
         uint16_t updateExponentialEstimate(uint16_t curTics);
+        uint16_t updateABEstimate(uint16_t measuremennt);
         uint16_t getDiag();
         uint16_t getEvenParityBit(uint16_t value);
         bool parityEven(uint16_t value);
@@ -140,5 +139,5 @@ class AS5048A{
         uint16_t read(uint16_t registerAddress);
         // TODO: Implement the write command.  Part of the configure version?
         uint16_t write(uint16_t registerAddress, uint16_t data);
-        uint16_t updateKalmanEstimate(uint16_t newVal);
+
 };

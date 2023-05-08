@@ -54,8 +54,8 @@ void AS5048A::update(){
   // the bottom 14 bits are the angle
   _curTics &= 0x3FFF;
   // apply filter to the raw data
-//  _curTics = updateKalmanEstimate(_curTics);
-  _curTics = updateExponentialEstimate(_curTics);
+  _curTics = updateABEstimate(_curTics);
+//  _curTics = updateExponentialEstimate(_curTics);
 
 //  #ifdef AS5048A_DEBUG
 //    Serial.print(" old value: ");
@@ -140,52 +140,60 @@ float AS5048A::getSensorStdDev(uint8_t numSamples) {
   return sqrt(sqDiffTot/numSamples);
 }
 
-uint16_t AS5048A::updateKalmanEstimate(uint16_t measurment) {
+uint16_t AS5048A::updateABEstimate(uint16_t measurement) {
+  // The physical model of our system is that we have at worst a "slowly" changing position of our telescope
+  // axis that we are trying to estimate based on noisy measurements from our position sensor.  The state we
+  // are most interested in settling upon is where the axes are not moving.  So our state equation is a constant.
 
-  _gain = _err_est/(_err_est + _err_meas);
-  /* We have to be carefull of overflow and underflow... 
-    * cases to treat:
+  // Prediction Step.
+  // variance prediction:
+  _pred_err = _cur_err + _q;
+
+  // Correction Step.
+  // Update the Kalman Gain.  
+  _gain = _pred_err/(_cur_err + _r);
+
+  // Update state
+  /* We have to be carefull to check if we have a zero crossing to contend with.  Since we are
+   * modeling our system as static, and we are taking lots of readings relative to the angular
+   * velocity we can use a simple heuristic:
+   * When |last_estimate - _current_measurement | > 1/2 * _maxTics) 
+   * we have values that cross the zero point.
+   * cases to treat:
+   * 1 - wrapping from high to low.  
+   *      _last_est - measurement > 1/2 * _maxTics
+   * 2 - wrappinng from low to high
+   *      measurement - _last_est > 1/2 * _maxTics
+   * 
    * last_estimate + _kalman_gain(mea - _last_estimate) > max
    * last_estimate + _kalman_gain(mea - _last_estimate) < 0
    * and we have to round the estimate to an uint16_t 
    */
-  uint16_t _curr_est = round(_last_est + _gain * (measurment- _last_est));
+
+  if (_last_est - measurement > _maxTics/2 ) {
+    // wrapping from high to low means that we have to map our measurement out past
+    // the _maxTics and then do our calculations on the updated state.
+    // Afterwards we will map back into range if we get taken beyond _maxTics
+    _curr_est = round(_last_est * (1 - _gain) + (measurement + _maxTics) * _gain);
+  } else if (measurement - _last_est > _maxTics/2 ) {
+    // wrapping from low to high means that we have to map our _last_est out past
+    // the _maxTics and then do the calculations on the updated state.
+    // Afterwards we will map back if needed.
+    _curr_est = round((_last_est + _maxTics) * (1 - _gain) + measurement * _gain);
+  } else {
+    _curr_est = round(_last_est * ( 1 - _gain) + measurement * _gain);
+  }
+  // Now make sure we have not gone past _maxTics.
   if ( _curr_est > _maxTics ) {
     _curr_est = _curr_est - _maxTics;
-  } else if (_curr_est < 0 ) {
-    _curr_est = _maxTics + _curr_est;
   }
-  /* cases to treat:
-   * We have to be carefull at the crossover from near max values and min values.
-   * When |last_estimate - _current_estimate | is large ( bigger than half max say ) 
-   * we have values that cross the zero point and we need to be a bit careful in 
-   * calculating the difference between the reading and the estimate.  
-  */
-  uint16_t cur_delta = _last_est - _curr_est;
-  // if you have a large negative value then the curr_est is large and last is small
-  if (cur_delta < (-1 * _maxTics/2) ){
-    cur_delta = cur_delta + _maxTics;
-    // if you have a large positive value then cur_est is small and last is large
-  } else if ( cur_delta > (_maxTics / 2)) {
-    cur_delta = _maxTics - cur_delta;
-  } else {
-    // otherwise just use the absolute value of the difference since it is small
-    // the cur_est and last are close numericaly.
-    cur_delta = abs(cur_delta);
-  }
-  // update the estimated error and the current estimated value
-  _err_est =  (1.0 - _gain)*_err_est + cur_delta*_q;
+  // Update Variance
+  _cur_err = (1 - _gain) * _pred_err;
+  
+  // store the prediction as the current state.
   _last_est =_curr_est;
 
   return _curr_est;
-}
-
-float AS5048A::getKalmanGain() {
-  return _gain;
-}
-
-float AS5048A::getEstimateError() {
-  return _err_est;
 }
 
 uint16_t AS5048A::updateExponentialEstimate(uint16_t newTics){
