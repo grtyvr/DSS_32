@@ -48,6 +48,16 @@ void initialize(){
   vspi->begin();
   alEnc.setSPIBus(vspi);
   azEnc.setSPIBus(vspi);
+  char buf[40];
+  Serial.println("Computing Altitude Encoder Standard Deviation");
+  delay(1000);
+  float alStdDev = alEnc.getSensorStdDev(30);
+  sprintf(buf, "Alt Enc Std Dev : %f", alStdDev);
+  Serial.println(buf);
+  Serial.println("Computing Azimuth Encoder Standard Deviation");
+  float azStdDev = azEnc.getSensorStdDev(30);
+  sprintf(buf, "Az Enc Std Dev  : %f", azStdDev);
+  Serial.println(buf);
 }
 
 /// @brief  Update the encoders

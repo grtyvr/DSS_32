@@ -22,21 +22,24 @@
 #include <SPI.h>
 
 // AS5048A SPI Register Map
-const uint16_t AS5048_CMD_NOP = 0x0;      // no operation, dummy information.  Use this to get result of last command
-const uint16_t AS5048_REG_ERR = 0x1;      // Error Register.  To clear the register, access it.
-                                          // bit 0, framing error, bit 1 Command invalid, bit 2 Parity Error.
-const uint16_t AS5048_PRM_CTL = 0x3;      // Programming control register.  Must enable before burning fuses.  Always 
-                                          // verify after programing. bit 0: program enable - bit 3: burn -- bit 6: verify
-const uint16_t AS5048_OTP_0_HIGH = 0x16;  // Zero position high byte: bits 0..7  top 6 bits not used.
-const uint16_t AS5048_OTP_0_LOW = 0x17;   // Zero position lower 6 Least Significant Bits: bits 0..5, Top 8 bits not used.
-const uint16_t AS5048_REG_AGC = 0x3FFD;   // Diagnostic and Automatic Gain Control
-                                          // Bits 0..7 AGC value 0=high, 255=low - Bit 8: OCF - Bit 9: COF - Bits 10..11 Comp Low..High
-const uint16_t AS5048_REG_MAG = 0x3FFE;   // Magnitude after ATAN calculation bits 0..13
-const uint16_t AS5048_REG_ANGLE = 0x3FFF; // Angle after ATAN calculation and zero position correction if used - bits 0..13
+const uint16_t CMD_NOP = 0x0;       // no operation, dummy information.  Use this to get result of last command
+const uint16_t REG_ERR = 0x1;       // Error Register.  To clear the register, access it.
+                                    // bit 0, framing error, bit 1 Command invalid, bit 2 Parity Error.
+const uint16_t PGM_CTL = 0x3;       // Programming control register.  Must enable before burning fuses.  Always 
+                                    // verify after programing. bit 0: program enable - bit 3: burn -- bit 6: verify
+const uint16_t OTP_0_HIGH = 0x16;   // Zero position high byte: bits 0..7  top 6 bits not used.
+const uint16_t OTP_0_LOW = 0x17;    // Zero position lower 6 Least Significant Bits: bits 0..5, Top 8 bits not used.
+const uint16_t REG_AGC = 0x3FFD;    // Diagnostic and Automatic Gain Control
+                                    // Bits 0..7 AGC value 0=high, 255=low - Bit 8: OCF - Bit 9: COF - Bits 10..11 Comp Low..High
+const uint16_t REG_MAG = 0x3FFE;    // Magnitude after ATAN calculation bits 0..13
+const uint16_t REG_ANGLE = 0x3FFF;  // Angle after ATAN calculation and zero position correction if used - bits 0..13
+const uint16_t CMD_READ = 0x4000;   // bit 15 = 1 for read operation.
+const uint16_t CLEAR_ERR = 0x1;     // Clear error flag
 
-const uint16_t AS5048_READ_CMD = 0x4000;  // bit 15 = 1 for read operation.
-
-const uint16_t AS5048_CLEAR_ERR = 0x1;    // Clear error flag
+constexpr std::uint16_t maskBottom14{0x3FFF};
+constexpr std::uint16_t maskBottom8{0xFF};
+constexpr std::uint16_t maskErrorFlag{0x4000};  // bit 15 is an error flag in a return value
+constexpr std::uint16_t maskCompHigh{};
 
 class AS5048A{
     private:
@@ -53,7 +56,8 @@ class AS5048A{
         float _curr_est = 0;
         float _last_est = 0;
         float _gain = 0;
-        float _expSmoothFactor = 0.1;  // weight new values by 10%
+        float _expSmoothFactor = 0.025; // weight new values by 2.5%
+        uint8_t _maxTries = 5;
 
     public:
         /**
@@ -120,12 +124,19 @@ class AS5048A{
 
         uint16_t getMaxTics();
 
+        float getSensorStdDev(uint8_t samples);
+
     private:
+
         float getKalmanGain();
         float getEstimateError();
         uint16_t updateExponentialEstimate(uint16_t curTics);
         uint16_t getDiag();
-        uint8_t calcEvenParity(uint16_t value);
+        uint16_t getEvenParityBit(uint16_t value);
+        bool parityEven(uint16_t value);
+        uint16_t readAngle();
+        void readErrorReg();
+        void reset();
         uint16_t read(uint16_t registerAddress);
         // TODO: Implement the write command.  Part of the configure version?
         uint16_t write(uint16_t registerAddress, uint16_t data);

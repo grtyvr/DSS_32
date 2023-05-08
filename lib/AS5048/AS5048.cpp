@@ -44,13 +44,13 @@ bool AS5048A::error(){
 }
 
 uint16_t AS5048A::getMagnitude(){
-  uint16_t rawData = read(AS5048_REG_MAG);
+  uint16_t rawData = read(REG_MAG);
   // the bottom 14 bits are the magnitude
   return rawData &= 0x3FFF;
 }
 
 void AS5048A::update(){
-  _curTics = read(AS5048_REG_ANGLE);
+  _curTics = read(REG_ANGLE);
   // the bottom 14 bits are the angle
   _curTics &= 0x3FFF;
   // apply filter to the raw data
@@ -65,8 +65,10 @@ void AS5048A::update(){
 }
 
 uint16_t AS5048A::getTics(){
+#ifdef AS5048A_DEBUG
   Serial.print(" new value: ");
   Serial.println(_curTics);
+#endif
   return _curTics;
 }
 
@@ -94,15 +96,52 @@ void AS5048A::printDiagnostics(){
 }
 
 uint16_t AS5048A::getDiag(){
-  return read(AS5048_REG_AGC);
+  return read(REG_AGC);
 }
 
 uint8_t AS5048A::getGain(){
   // the gain is in the bottom 8 bits
-  return read(AS5048_REG_AGC) & 0xFF;
+  return read(REG_AGC) & 0xFF;
 }
 
-uint16_t AS5048A::updateKalmanEstimate(uint16_t mea) {
+float AS5048A::getSensorStdDev(uint8_t numSamples) {
+  // Take numSamples of readings and return the sample standard deviation
+  uint16_t samples[numSamples];
+  uint32_t total = 0;
+  #ifdef AS5048A_DEBUG
+    unsigned long startTransactionTime;
+    unsigned long stopTransactionTime;
+  #endif
+  // wake up the chip with a reset.
+  reset();
+  for (int i = 0; i < numSamples; i++){
+    #ifdef AS5048A_DEBUG
+      startTransactionTime = micros();
+    #endif
+    samples[i] = readAngle();
+    #ifdef AS5048A_DEBUG
+      stopTransactionTime = micros();
+      Serial.print("Transaction Time: ");
+      Serial.print(stopTransactionTime - startTransactionTime);
+      Serial.print(" value: ");
+      Serial.println(samples[i]);
+    #endif
+    total += samples[i];
+  }
+  uint16_t mean =  round(total / numSamples);
+  #ifdef AS5048A_DEBUG
+    Serial.print("Mean: ");
+    Serial.println(mean);
+  #endif
+  float sqDiffTot = 0.0;
+  for (int i = 0; i < numSamples; i++){
+    sqDiffTot += pow(samples[i] - mean, 2);
+  }
+  return sqrt(sqDiffTot/numSamples);
+}
+
+uint16_t AS5048A::updateKalmanEstimate(uint16_t measurment) {
+
   _gain = _err_est/(_err_est + _err_meas);
   /* We have to be carefull of overflow and underflow... 
     * cases to treat:
@@ -110,7 +149,7 @@ uint16_t AS5048A::updateKalmanEstimate(uint16_t mea) {
    * last_estimate + _kalman_gain(mea - _last_estimate) < 0
    * and we have to round the estimate to an uint16_t 
    */
-  uint16_t _curr_est = round(_last_est + _gain * (mea - _last_est));
+  uint16_t _curr_est = round(_last_est + _gain * (measurment- _last_est));
   if ( _curr_est > _maxTics ) {
     _curr_est = _curr_est - _maxTics;
   } else if (_curr_est < 0 ) {
@@ -187,22 +226,34 @@ uint16_t AS5048A::updateExponentialEstimate(uint16_t newTics){
 }
 
 uint16_t AS5048A::read(uint16_t REGISTER){
-  // read the sensors REG_DATA register.  Stores the angle.
-  unsigned int data;
+  // Send a read command to the chip to read REGISTER
+  // Note that the chip needs to have a second read
+  // in order to get the data from the first command.
+  uint16_t data;
+  // send a read command to access the REGISTER
   // Set up the command we will send
-  word command = AS5048_READ_CMD | REGISTER;
-  command |= calcEvenParity(command) <<15;
+  uint16_t command = CMD_READ | REGISTER;
+  command |= getEvenParityBit(command) <<15;
   _spi->beginTransaction(_settings);
   // Drop cs low to enable the AS5048
   digitalWrite(_cs, LOW);
   data = _spi->transfer16(command);
   digitalWrite(_cs, HIGH);
-  digitalWrite(_cs, LOW);
-  // you have to poll the chip twice.  Data from previous command comes
-  // back on the next SPI transfer
-  data = _spi->transfer16(command);
-  digitalWrite(_cs, HIGH);
   _spi->endTransaction();
+
+  return data;
+}
+
+uint16_t AS5048A::readAngle(){
+  // Send a read command to the chip to read the angle register
+  // Note that the chip needs to have a second read
+  // in order to get the data from the first command.
+  uint16_t data = read(REG_ANGLE);
+  data = read(CMD_NOP);
+
+  if (!parityEven(data)){
+    Serial.println("Odd Parity Returned.");
+  }
   #ifdef AS5048A_DEBUG
     Serial.println();
     Serial.print("Sent Command: ");
@@ -211,42 +262,48 @@ uint16_t AS5048A::read(uint16_t REGISTER){
     Serial.println(REGISTER, BIN);
     Serial.println(data);
   #endif
-  // if bit 15 is set then there was an error on the last command
   if (data & 0x4000) {
-    command = AS5048_READ_CMD | AS5048_CLEAR_ERR;
-    command |= calcEvenParity(command);
-    _spi->beginTransaction(_settings);
-    digitalWrite(_cs, LOW);
-    data = _spi->transfer16(command);
-    digitalWrite(_cs, HIGH);
-    digitalWrite(_cs, LOW);
-    data = _spi->transfer16(command);
-    digitalWrite(_cs, HIGH);
-    _spi->endTransaction();
-    switch(data & 0x7) {
-      case 0x4:
-        Serial.println("parity error on read.");
-      break;
-      
-      case 0x2:
-        Serial.println("Command Invalid.");
-      break;
-
-      case 0x1:
-        Serial.println("Framing error.");
-      break;
-    }
-    data = 0;  
+    // if bit 15 is set then there was an error on the last command
+    Serial.println("Error bit was set:");
   }
-  return data;
-
+  return data & 0x3FFF;
 }
 
-byte AS5048A::calcEvenParity(uint16_t value){
+void AS5048A::readErrorReg(){
+  // if a previous command returns an error we call this procedure
+  // to get the error register.  We only have one SPI command since
+  // the error register was pre-populated by the previous command.
+  uint16_t command;
+  uint16_t data;
+  command = CMD_READ | CLEAR_ERR;
+  command |= getEvenParityBit(command) <<15;
+  _spi->beginTransaction(_settings);
+  digitalWrite(_cs, LOW);
+  data = _spi->transfer16(command);
+  _spi->endTransaction();
+  // the bottom three bits now store error flags
+  bool invalidCommand = (data >> 1) & 0x1;
+  bool framingError = (data >> 2) & 0x1;
+  if (data & 0x1){
+    Serial.println("Parity error");    
+  }
+  if ((data >> 1) & 0x1) {
+      Serial.println("Command invalid");
+  }
+  if ((data >> 2) & 0x1) {
+      Serial.println("Framing error");
+  }
+}
+
+void AS5048A::reset(){
+  digitalWrite(_cs, LOW);
+  digitalWrite(_cs, HIGH);
+}
+uint16_t AS5048A::getEvenParityBit(uint16_t value){
   //
-  byte count = 0;
+  uint8_t count = 0;
   // loop through the 16 bits
-  for (byte i = 0; i < 16; i++) {
+  for (uint8_t i = 0; i < 16; i++) {
     // if the rightmost bit is 1 increment our counter
     if (value & 0x1) {
       count++;
@@ -256,4 +313,26 @@ byte AS5048A::calcEvenParity(uint16_t value){
   }
   // all odd binaries end in 1
   return count & 0x1;
+}
+
+bool AS5048A::parityEven(uint16_t value){
+    //
+    bool retVal = true;
+    uint16_t count = 0;
+    // loop through the 16 bits
+    for (uint8_t i = 0; i < 16; i++) {
+        // if the rightmost bit is 1 increment our counter
+        if (value & 0x1) {
+            count++;
+        }
+        // shift off the rightmost bit
+        value >>=1;
+    }
+    // all odd binaries end in 1
+    if ((count & 0x1) == 1) {
+        retVal = false;
+    } else {
+        retVal = true;
+    }
+    return retVal;
 }

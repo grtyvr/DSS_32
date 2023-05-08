@@ -82,12 +82,12 @@ void setup() {
   ledOnEvent();
   
   // Buttons
-  Buttons::initialize();
-  event::mainLoop().addPollEvent(&Application::processButtonPresses);
+//  Buttons::initialize();
+//  event::mainLoop().addPollEvent(&Application::processButtonPresses);
 
   // Initialize the display
-  Display::initialize();
-  event::mainLoop().addRepeatedEvent(&Display::update,60_ms); // about 16 FPS
+ Display::initialize();
+ event::mainLoop().addRepeatedEvent(&Display::update,60_ms); // about 16 FPS
 
   // start the network
   Network::initialize(apssid);
